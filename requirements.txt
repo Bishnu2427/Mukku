@@ -1,0 +1,37 @@
+# ── Web framework ──────────────────────────────────────────────────────────
+flask>=3.0.0
+flask-cors>=4.0.0
+python-dotenv>=1.0.0
+
+# ── Database ────────────────────────────────────────────────────────────────
+pymongo>=4.6.0
+
+# ── LLM (Ollama HTTP client) ────────────────────────────────────────────────
+requests>=2.31.0
+
+# ── Image generation (Stable Diffusion) ────────────────────────────────────
+# Install PyTorch separately first:
+#   CUDA:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#   CPU:   pip install torch torchvision
+diffusers>=0.27.0
+transformers>=4.38.0
+accelerate>=0.27.0
+Pillow>=10.2.0
+
+# ── Voice generation ────────────────────────────────────────────────────────
+# Option 1: Coqui TTS (recommended, offline, high quality)
+TTS>=0.22.0
+
+# Option 2: pyttsx3 (offline, OS voices, lightweight fallback)
+pyttsx3>=2.90
+
+# Option 3: gTTS (online, always available as last resort)
+gTTS>=2.5.0
+
+# ── Video assembly ──────────────────────────────────────────────────────────
+moviepy>=1.0.3
+imageio>=2.34.0
+imageio-ffmpeg>=0.4.9
+
+# ── Utilities ───────────────────────────────────────────────────────────────
+numpy>=1.26.0

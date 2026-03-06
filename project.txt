@@ -1,0 +1,347 @@
+AI Content Creation Platform (Prompt → Video Generator)
+Role
+
+You are a senior AI engineer and full-stack architect.
+
+Your task is to design and implement a production-quality AI content creation web application that generates professional video content from a single prompt.
+
+The system should behave like an AI creative agent that automatically generates:
+
+Script
+
+Scene plan
+
+Images
+
+Voiceover
+
+Video
+
+Final edited output
+
+The final output should be a ready-to-publish video.
+
+The system concept is similar to Wonda, but implemented primarily with free and open-source AI models.
+
+Project Objective
+
+Build a web application where a user enters a prompt describing the content they want, and the system automatically generates a complete video.
+
+Example prompt:
+
+Create a 60 second YouTube video explaining how to use baby diapers for new parents.
+
+The system must automatically perform the following pipeline:
+
+Understand the prompt
+
+Generate a professional script
+
+Break the script into scenes
+
+Generate images for each scene
+
+Generate voiceover narration
+
+Assemble a video
+
+Provide a downloadable final video
+
+Tech Stack
+Frontend
+
+Use:
+
+HTML
+
+CSS
+
+Vanilla JavaScript
+
+Frontend features:
+
+Prompt input field
+
+Generate button
+
+Progress indicator
+
+Video preview player
+
+Download button
+
+Backend
+
+Use:
+
+Python with Flask
+
+Responsibilities:
+
+API layer
+
+AI pipeline orchestration
+
+Task execution
+
+Media generation coordination
+
+Database
+
+Use MongoDB to store:
+
+User prompts
+
+Generated scripts
+
+Scene breakdowns
+
+Generated media metadata
+
+Final video path
+
+AI Model Strategy
+
+The system should prioritize free or open-source models.
+
+LLM for Script Generation
+
+Use a local LLM via Ollama.
+
+Possible models:
+
+Llama3
+
+Mistral
+
+Mixtral
+
+Purpose:
+
+Convert user prompts into professional video scripts.
+
+Scene Planning
+
+Use the LLM to convert scripts into structured scenes.
+
+Example output:
+
+Scene 1
+Visual: Mother preparing diaper changing table
+Voiceover: Preparing a clean diaper changing station is important.
+
+Scene 2
+Visual: Baby lying on changing mat
+Voiceover: Place your baby gently on the mat.
+
+Each scene should include:
+
+visual prompt
+
+narration
+
+duration
+
+Image Generation
+
+Generate visuals using Stable Diffusion from Hugging Face.
+
+Example prompt:
+
+mother preparing baby diaper changing station, soft lighting, realistic photography
+
+Output:
+
+scene1.png
+scene2.png
+scene3.png
+Voice Generation
+
+Generate narration using open-source TTS.
+
+Recommended tools:
+
+Coqui TTS
+
+Bark
+
+Output example:
+
+scene1_voice.wav
+scene2_voice.wav
+Video Assembly
+
+Combine images and audio into a final video.
+
+Use:
+
+MoviePy
+
+FFmpeg
+
+Add:
+
+scene transitions
+
+zoom/pan effects
+
+optional background music
+
+Output:
+
+final_video.mp4
+AI Pipeline Architecture
+
+The system should implement a multi-stage AI pipeline.
+
+User Prompt
+     |
+     V
+Prompt Understanding Agent
+     |
+     V
+Script Generation Agent
+     |
+     V
+Scene Planning Agent
+     |
+     V
+Image Generation Engine
+     |
+     V
+Voice Generation Engine
+     |
+     V
+Video Composition Engine
+     |
+     V
+Final Video Output
+
+Each step should be implemented as separate Python modules.
+
+Backend API Design
+Generate Video
+POST /generate
+
+Input:
+
+{
+ "prompt": "Create a YouTube video explaining baby diaper usage"
+}
+
+Response:
+
+{
+ "project_id": "abc123",
+ "status": "processing"
+}
+Check Generation Status
+GET /status/{project_id}
+Get Final Video
+GET /video/{project_id}
+Project Folder Structure
+ai-content-platform/
+
+frontend/
+    index.html
+    style.css
+    script.js
+
+backend/
+    app.py
+
+agents/
+    prompt_agent.py
+    script_agent.py
+    scene_agent.py
+
+generators/
+    image_generator.py
+    voice_generator.py
+    video_generator.py
+
+services/
+    pipeline_manager.py
+
+database/
+    mongo.py
+
+media/
+    images/
+    audio/
+    videos/
+
+requirements.txt
+System Behavior Requirements
+
+The system must process requests asynchronously since video generation takes time.
+
+Each pipeline step should save intermediate results.
+
+The system should allow debugging of each step.
+
+Generated assets should be stored locally in structured folders.
+
+Example Workflow
+
+User prompt:
+
+Create a 60 second YouTube tutorial on how to use baby diapers.
+
+Pipeline output:
+
+Script
+
+Professional narration script.
+
+Scene Plan
+
+Structured scenes with visuals and narration.
+
+Images
+
+Generated visuals for each scene.
+
+Voiceover
+
+Narration audio.
+
+Video
+
+Images + audio combined into final video.
+
+Performance Considerations
+
+Because most models are local:
+
+Use background tasks
+
+Avoid blocking Flask requests
+
+Cache generated outputs
+
+Future Improvements
+
+Design the architecture so the system can later support:
+
+AI avatars
+
+text-to-video models
+
+subtitles
+
+multi-language voiceovers
+
+social media export formats
+
+Final Goal
+
+Create a fully functional AI web application where a user can:
+
+Enter a prompt
+
+Automatically generate professional content
+
+Download a ready-to-publish video
+
+The system should be designed with modular architecture, scalability, and clean code practices so it can evolve into a real product.

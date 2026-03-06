@@ -1,0 +1,367 @@
+Build an AI Content Creation Platform (Prompt → Video)
+Your Role
+
+You are a senior AI engineer, ML engineer, and full-stack architect.
+
+Your task is to design and generate the complete codebase for a production-ready AI content generation platform.
+
+The platform must convert a single text prompt into a professional video.
+
+The system should act like an AI creative agent that automatically generates:
+
+script
+
+scene breakdown
+
+images
+
+voiceover
+
+video
+
+final edited media
+
+The final result should be a ready-to-publish video.
+
+The product concept is similar to Wonda, but built mostly with free and open-source AI tools.
+
+Project Vision
+
+Build a web application where users enter a prompt like:
+
+Create a 60 second YouTube video explaining how to use baby diapers for new parents.
+
+The system automatically generates:
+
+Professional script
+
+Scene breakdown
+
+Image prompts
+
+Generated images
+
+Voice narration
+
+Scene videos
+
+Final video
+
+This system should function as an AI content generation pipeline.
+
+Technology Stack
+Frontend
+
+Use:
+
+HTML
+
+CSS
+
+Vanilla JavaScript
+
+Frontend requirements:
+
+Prompt input box
+
+Generate button
+
+Progress display
+
+Video preview player
+
+Download button
+
+Backend
+
+Use:
+
+Python + Flask
+
+Responsibilities:
+
+API endpoints
+
+AI pipeline orchestration
+
+content generation
+
+file management
+
+Database
+
+Use MongoDB.
+
+Store:
+
+prompts
+
+scripts
+
+scenes
+
+media file paths
+
+final video metadata
+
+AI Model Strategy (Prefer Free Models)
+LLM
+
+Run locally using Ollama.
+
+Recommended models:
+
+Llama3
+
+Mistral
+
+Mixtral
+
+Purpose:
+
+convert prompt → professional script
+
+generate scene breakdown
+
+Image Generation
+
+Use Stable Diffusion models from Hugging Face.
+
+Purpose:
+
+Generate visuals for scenes.
+
+Example prompt:
+
+mother preparing baby diaper changing station, realistic photography, soft lighting
+Voice Generation
+
+Use open-source text-to-speech.
+
+Options:
+
+Coqui TTS
+
+Bark
+
+Purpose:
+
+Convert narration text → voice audio.
+
+Output example:
+
+scene1_voice.wav
+scene2_voice.wav
+Video Assembly
+
+Use:
+
+MoviePy
+
+FFmpeg
+
+Combine:
+
+scene images
+
+voiceover
+
+transitions
+
+background music
+
+Output:
+
+final_video.mp4
+AI Pipeline Design
+
+Implement a modular AI pipeline.
+
+User Prompt
+     |
+     V
+Prompt Understanding Agent
+     |
+     V
+Script Generation Agent
+     |
+     V
+Scene Planner Agent
+     |
+     V
+Image Generation Engine
+     |
+     V
+Voice Generation Engine
+     |
+     V
+Video Assembly Engine
+     |
+     V
+Final Video Output
+
+Each step must be implemented as independent Python modules.
+
+Backend API Design
+Generate Video
+POST /generate
+
+Input:
+
+{
+ "prompt": "Create a youtube video explaining baby diapers"
+}
+
+Response:
+
+{
+ "project_id": "12345",
+ "status": "processing"
+}
+Check Status
+GET /status/{project_id}
+Get Video
+GET /video/{project_id}
+Folder Structure
+
+Generate a complete project with this structure:
+
+ai-content-agent/
+
+frontend/
+    index.html
+    style.css
+    script.js
+
+backend/
+    app.py
+
+agents/
+    prompt_agent.py
+    script_agent.py
+    scene_agent.py
+
+generators/
+    image_generator.py
+    voice_generator.py
+    video_generator.py
+
+services/
+    pipeline_manager.py
+
+database/
+    mongo_connection.py
+
+media/
+    images/
+    audio/
+    videos/
+
+requirements.txt
+README.md
+Implementation Requirements
+
+The generated code must:
+
+Be clean and modular
+
+Follow Python best practices
+
+Separate AI logic into services
+
+Save generated media locally
+
+Support easy model replacement
+
+Use Flask APIs for interaction
+
+Frontend Design
+
+Create a simple UI.
+
+Layout example:
+
+---------------------------------
+AI Video Generator
+---------------------------------
+
+[ Enter your prompt here ]
+
+[ Generate Video ]
+
+Status: Processing...
+
+[ Video Preview ]
+
+[ Download Video ]
+Example Workflow
+
+User prompt:
+
+Create a 60 second YouTube tutorial about how to use baby diapers.
+
+Pipeline output:
+
+Script
+
+Professional narration.
+
+Scenes
+
+Scene-by-scene breakdown.
+
+Images
+
+Generated scene visuals.
+
+Voice
+
+Narration audio.
+
+Video
+
+Final combined video.
+
+Performance Considerations
+
+Because models may run locally:
+
+Use background tasks
+
+avoid blocking requests
+
+save intermediate outputs
+
+Future Expansion
+
+Design architecture so it can later support:
+
+AI avatars
+
+lip-sync
+
+text-to-video models
+
+subtitle generation
+
+social media export formats
+
+Final Deliverable
+
+Generate:
+
+Complete project code
+
+Frontend files
+
+Backend Flask APIs
+
+AI pipeline modules
+
+Example scripts for running models
+
+requirements.txt
+
+README.md explaining how to run the system
+
+The result should be a working AI content generation platform capable of turning prompts into videos.

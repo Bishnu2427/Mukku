@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Video Generator</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9654;</span>
+        <span class="logo-text">AI Video Generator</span>
+      </div>
+      <span class="header-tagline">Prompt → Professional Video</span>
+    </div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- ── Input Card ── -->
+    <section class="card input-card" id="inputSection">
+      <h2 class="card-title">What video do you want to create?</h2>
+      <p class="card-subtitle">
+        Describe your video idea in detail — the more specific you are, the better the result.
+      </p>
+
+      <div class="prompt-wrapper">
+        <textarea
+          id="promptInput"
+          class="prompt-input"
+          placeholder="e.g. Create a 60-second YouTube tutorial explaining how to use baby diapers for new parents, in a calm and professional tone."
+          rows="5"
+          maxlength="2000"
+        ></textarea>
+        <div class="char-count"><span id="charCount">0</span> / 2000</div>
+      </div>
+
+      <div class="example-prompts">
+        <span class="examples-label">Try an example:</span>
+        <button class="example-btn" data-prompt="Create a 60-second YouTube tutorial on how to use baby diapers for new parents in a calm and reassuring tone.">Baby Diapers Tutorial</button>
+        <button class="example-btn" data-prompt="Make a 45-second explainer video about the benefits of drinking water daily for general health enthusiasts.">Benefits of Water</button>
+        <button class="example-btn" data-prompt="Create a 60-second motivational video about the importance of exercise and healthy habits for young adults.">Healthy Habits</button>
+      </div>
+
+      <button id="generateBtn" class="btn btn-primary" onclick="startGeneration()">
+        <span class="btn-icon">&#9654;</span>
+        Generate Video
+      </button>
+
+      <div id="errorMsg" class="error-msg hidden"></div>
+    </section>
+
+    <!-- ── Progress Card ── -->
+    <section class="card progress-card hidden" id="progressSection">
+      <div class="progress-header">
+        <h2 class="card-title">Generating Your Video</h2>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+      </div>
+
+      <div class="pipeline-steps" id="pipelineSteps">
+        <div class="step" data-step="analyzing_prompt">
+          <div class="step-dot"></div>
+          <div class="step-info">
+            <span class="step-name">Analyzing Prompt</span>
+            <span class="step-desc">Understanding your video idea</span>
+          </div>
+        </div>
+        <div class="step" data-step="generating_script">
+          <div class="step-dot"></div>
+          <div class="step-info">
+            <span class="step-name">Writing Script</span>
+            <span class="step-desc">Generating professional narration</span>
+          </div>
+        </div>
+        <div class="step" data-step="planning_scenes">
+          <div class="step-dot"></div>
+          <div class="step-info">
+            <span class="step-name">Planning Scenes</span>
+            <span class="step-desc">Breaking script into visual scenes</span>
+          </div>
+        </div>
+        <div class="step" data-step="generating_images">
+          <div class="step-dot"></div>
+          <div class="step-info">
+            <span class="step-name">Generating Images</span>
+            <span class="step-desc">Creating visuals with Stable Diffusion</span>
+          </div>
+        </div>
+        <div class="step" data-step="generating_voices">
+          <div class="step-dot"></div>
+          <div class="step-info">
+            <span class="step-name">Generating Voiceover</span>
+            <span class="step-desc">Synthesizing narration audio</span>
+          </div>
+        </div>
+        <div class="step" data-step="assembling_video">
+          <div class="step-dot"></div>
+          <div class="step-info">
+            <span class="step-name">Assembling Video</span>
+            <span class="step-desc">Combining images, audio & transitions</span>
+          </div>
+        </div>
+        <div class="step" data-step="completed">
+          <div class="step-dot"></div>
+          <div class="step-info">
+            <span class="step-name">Complete</span>
+            <span class="step-desc">Your video is ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Script preview (shown after script is generated) -->
+      <div id="scriptPreview" class="script-preview hidden">
+        <h3 class="section-label">Generated Script</h3>
+        <div class="script-text" id="scriptText"></div>
+      </div>
+
+      <!-- Scene cards (shown after scene planning) -->
+      <div id="scenesPreview" class="scenes-preview hidden">
+        <h3 class="section-label">Scene Breakdown</h3>
+        <div class="scenes-grid" id="scenesGrid"></div>
+      </div>
+    </section>
+
+    <!-- ── Error Card ── -->
+    <section class="card error-card hidden" id="errorSection">
+      <div class="error-icon">&#9888;</div>
+      <h2 class="card-title">Generation Failed</h2>
+      <p class="error-detail" id="errorDetail">An error occurred during video generation.</p>
+      <button class="btn btn-secondary" onclick="resetUI()">Try Again</button>
+    </section>
+
+    <!-- ── Result Card ── -->
+    <section class="card result-card hidden" id="resultSection">
+      <div class="result-header">
+        <div class="success-badge">&#10003; Video Ready</div>
+        <h2 class="card-title">Your Video Is Ready!</h2>
+        <p class="card-subtitle">Your AI-generated video has been created successfully.</p>
+      </div>
+
+      <div class="video-container">
+        <video id="videoPlayer" class="video-player" controls preload="metadata">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+
+      <div class="result-actions">
+        <a id="downloadBtn" class="btn btn-primary" href="#" download>
+          <span class="btn-icon">&#8595;</span>
+          Download Video
+        </a>
+        <button class="btn btn-secondary" onclick="resetUI()">
+          <span class="btn-icon">&#43;</span>
+          Create Another
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="footer">
+    <p>Built with Ollama &middot; Stable Diffusion &middot; Coqui TTS &middot; MoviePy</p>
+  </footer>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
