@@ -3,305 +3,530 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mukku — AI Video Generator</title>
+  <title>Mukku — AI Video Studio</title>
   <link rel="icon" type="image/png" href="/static/mukku_logo.png" />
   <link rel="stylesheet" href="/static/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 
+  <!-- Ambient background layers -->
+  <div class="bg-grid"></div>
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+  <div class="bg-scanline"></div>
+
+  <!-- Header -->
   <header class="header">
     <div class="header-inner">
       <div class="logo">
+        <div class="logo-ring"></div>
         <img src="/static/mukku_logo.png" alt="Mukku" class="logo-img" />
       </div>
-      <span class="header-tagline">Text → Professional Video</span>
+      <div class="header-center">
+        <span class="header-title">Mukku <span class="header-title-accent">AI Studio</span></span>
+        <span class="header-tagline">Text &rarr; Professional Video in seconds</span>
+      </div>
+      <div class="header-right">
+        <nav class="header-nav">
+          <button class="nav-btn" id="navStudio" onclick="showStudio()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            Studio
+          </button>
+          <button class="nav-btn nav-btn-active" id="navDashboard" onclick="showDashboard()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            My Videos
+          </button>
+        </nav>
+        <div class="header-badges">
+          <span class="badge badge-live">
+            <span class="badge-dot"></span>
+            LIVE
+          </span>
+          <span class="badge badge-version">v2.0</span>
+        </div>
+      </div>
     </div>
   </header>
 
   <main class="main">
 
-    <!-- Input Card -->
-    <section class="card input-card" id="inputSection">
-      <h2 class="card-title">What video do you want to create?</h2>
-      <p class="card-subtitle">
-        Describe your topic in detail — the more specific you are, the better the result.
-      </p>
+    <!-- ══════════════════════ STUDIO VIEW ══════════════════════ -->
+    <div id="studioView" class="hidden">
 
-      <div class="prompt-wrapper">
-        <textarea
-          id="promptInput"
-          class="prompt-input"
-          placeholder="e.g. Create a tutorial on how to use baby diapers for new parents, covering preparation, changing steps, and hygiene tips, in a calm and reassuring tone."
-          rows="5"
-          maxlength="3000"
-        ></textarea>
-        <div class="char-count"><span id="charCount">0</span> / 3000</div>
+      <!-- Hero (hidden during processing) -->
+      <div class="hero-section" id="heroSection">
+        <div class="hero-label">&#9889; POWERED BY AI</div>
+        <h1 class="hero-title">Create <span class="gradient-text">Viral Videos</span><br/>From a Single Prompt</h1>
+        <p class="hero-subtitle">Scripts · Visuals · Voiceover · Music — all generated automatically in one pipeline.</p>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="stat-value">9</span>
+            <span class="stat-label">AI Stages</span>
+          </div>
+          <div class="hero-divider"></div>
+          <div class="hero-stat">
+            <span class="stat-value">7+</span>
+            <span class="stat-label">Platforms</span>
+          </div>
+          <div class="hero-divider"></div>
+          <div class="hero-stat">
+            <span class="stat-value">12</span>
+            <span class="stat-label">Languages</span>
+          </div>
+          <div class="hero-divider"></div>
+          <div class="hero-stat">
+            <span class="stat-value">5 min</span>
+            <span class="stat-label">Max Length</span>
+          </div>
+        </div>
       </div>
 
-      <div class="example-prompts">
-        <span class="examples-label">Try an example:</span>
-        <button class="example-btn" data-prompt="Create a tutorial on how to properly change a baby diaper for first-time parents. Cover all steps from preparation to disposal, with safety tips, in a calm and reassuring tone.">Baby Diaper Tutorial</button>
-        <button class="example-btn" data-prompt="Make an explainer video about the health benefits of drinking enough water daily. Include science-backed facts, symptoms of dehydration, and practical daily tips.">Benefits of Water</button>
-        <button class="example-btn" data-prompt="Create a motivational video about building consistent exercise habits. Include the science of habit formation, beginner-friendly tips, and inspiring real-world examples.">Exercise Habits</button>
-      </div>
+      <!-- Input Card -->
+      <section class="card input-card" id="inputSection">
+        <div class="card-corner tl"></div><div class="card-corner tr"></div>
+        <div class="card-corner bl"></div><div class="card-corner br"></div>
 
-      <!-- Settings Panel -->
-      <div class="settings-panel">
-        <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
-          <span class="settings-icon">&#9881;</span>
-          Customize Video
-          <span class="settings-arrow" id="settingsArrow">&#9660;</span>
+        <div class="card-header-row">
+          <div>
+            <h2 class="card-title">What&rsquo;s your video about?</h2>
+            <p class="card-subtitle">Describe your topic in detail — the more specific, the better the result.</p>
+          </div>
+          <div class="card-badge">INPUT</div>
+        </div>
+
+        <div class="prompt-wrapper">
+          <textarea id="promptInput" class="prompt-input"
+            placeholder="e.g. Create a tutorial on how to use baby diapers for new parents, covering preparation, changing steps, and hygiene tips, in a calm and reassuring tone."
+            rows="5" maxlength="3000"></textarea>
+          <div class="char-count"><span id="charCount">0</span> / 3000</div>
+        </div>
+
+        <div class="example-prompts">
+          <span class="examples-label">Quick start:</span>
+          <button class="example-btn" data-prompt="Create a tutorial on how to properly change a baby diaper for first-time parents. Cover all steps from preparation to disposal, with safety tips, in a calm and reassuring tone.">Baby Diaper Tutorial</button>
+          <button class="example-btn" data-prompt="Make an explainer video about the health benefits of drinking enough water daily. Include science-backed facts, symptoms of dehydration, and practical daily tips.">Benefits of Water</button>
+          <button class="example-btn" data-prompt="Create a motivational video about building consistent exercise habits. Include the science of habit formation, beginner-friendly tips, and inspiring real-world examples.">Exercise Habits</button>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel">
+          <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
+            <svg class="settings-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Customize Settings
+            <span class="settings-arrow" id="settingsArrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </span>
+          </button>
+          <div class="settings-body" id="settingsBody">
+            <div class="setting-group full-width">
+              <label class="setting-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                Platform
+              </label>
+              <div class="seg-control" id="platformSeg">
+                <button class="seg-btn" data-value="youtube">YouTube</button>
+                <button class="seg-btn" data-value="youtube_shorts">YT Shorts</button>
+                <button class="seg-btn" data-value="tiktok">TikTok</button>
+                <button class="seg-btn" data-value="instagram_reels">Reels</button>
+                <button class="seg-btn" data-value="instagram_post">IG Post</button>
+                <button class="seg-btn" data-value="linkedin">LinkedIn</button>
+                <button class="seg-btn" data-value="twitter">Twitter/X</button>
+              </div>
+              <p class="setting-hint">Select a platform to auto-configure aspect ratio, duration &amp; tone.</p>
+            </div>
+            <div class="setting-group full-width">
+              <label class="setting-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>
+                Language
+              </label>
+              <div class="seg-control" id="languageSeg">
+                <button class="seg-btn active" data-value="en">English</button>
+                <button class="seg-btn" data-value="hi">Hindi</button>
+                <button class="seg-btn" data-value="bn">Bengali</button>
+                <button class="seg-btn" data-value="te">Telugu</button>
+                <button class="seg-btn" data-value="mr">Marathi</button>
+                <button class="seg-btn" data-value="ta">Tamil</button>
+                <button class="seg-btn" data-value="gu">Gujarati</button>
+                <button class="seg-btn" data-value="kn">Kannada</button>
+                <button class="seg-btn" data-value="ml">Malayalam</button>
+                <button class="seg-btn" data-value="pa">Punjabi</button>
+                <button class="seg-btn" data-value="or">Odia</button>
+                <button class="seg-btn" data-value="as">Assamese</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="setting-group">
+                <label class="setting-label">Duration</label>
+                <div class="seg-control" id="durationSeg">
+                  <button class="seg-btn" data-value="30">30s</button>
+                  <button class="seg-btn active" data-value="60">1 min</button>
+                  <button class="seg-btn" data-value="90">90s</button>
+                  <button class="seg-btn" data-value="120">2 min</button>
+                  <button class="seg-btn" data-value="180">3 min</button>
+                  <button class="seg-btn" data-value="300">5 min</button>
+                </div>
+              </div>
+              <div class="setting-group">
+                <label class="setting-label">Tone</label>
+                <div class="seg-control" id="toneSeg">
+                  <button class="seg-btn active" data-value="educational">Educational</button>
+                  <button class="seg-btn" data-value="professional">Professional</button>
+                  <button class="seg-btn" data-value="motivational">Motivational</button>
+                  <button class="seg-btn" data-value="casual">Casual</button>
+                  <button class="seg-btn" data-value="entertaining">Entertaining</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="setting-group">
+                <label class="setting-label">Image Style</label>
+                <div class="seg-control" id="styleSeg">
+                  <button class="seg-btn active" data-value="photorealistic">Photorealistic</button>
+                  <button class="seg-btn" data-value="cinematic">Cinematic</button>
+                  <button class="seg-btn" data-value="documentary">Documentary</button>
+                </div>
+              </div>
+              <div class="setting-group">
+                <label class="setting-label">Aspect Ratio</label>
+                <div class="seg-control" id="ratioSeg">
+                  <button class="seg-btn active" data-value="16:9">16:9 Landscape</button>
+                  <button class="seg-btn" data-value="9:16">9:16 Vertical</button>
+                  <button class="seg-btn" data-value="1:1">1:1 Square</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="setting-group">
+                <label class="setting-label">Voiceover</label>
+                <div class="seg-control" id="voiceSeg">
+                  <button class="seg-btn active" data-value="auto">Auto</button>
+                  <button class="seg-btn" data-value="female">Female</button>
+                  <button class="seg-btn" data-value="male">Male</button>
+                </div>
+              </div>
+              <div class="setting-group">
+                <label class="setting-label">Background Music</label>
+                <div class="seg-control" id="musicSeg">
+                  <button class="seg-btn active" data-value="true">On</button>
+                  <button class="seg-btn" data-value="false">Off</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button id="generateBtn" class="btn btn-primary btn-generate" onclick="startGeneration()">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z"/></svg>
+          Generate Video
+          <span class="btn-shine"></span>
         </button>
+        <div id="errorMsg" class="error-msg hidden"></div>
+      </section>
 
-        <div class="settings-body" id="settingsBody">
+      <!-- Progress Card -->
+      <section class="card progress-card hidden" id="progressSection">
+        <div class="card-corner tl"></div><div class="card-corner tr"></div>
+        <div class="card-corner bl"></div><div class="card-corner br"></div>
 
-          <!-- Platform Presets -->
-          <div class="setting-group" style="grid-column:1/-1">
-            <label class="setting-label">Platform</label>
-            <div class="seg-control" id="platformSeg">
-              <button class="seg-btn" data-value="youtube">YouTube</button>
-              <button class="seg-btn" data-value="youtube_shorts">YT Shorts</button>
-              <button class="seg-btn" data-value="tiktok">TikTok</button>
-              <button class="seg-btn" data-value="instagram_reels">Reels</button>
-              <button class="seg-btn" data-value="instagram_post">IG Post</button>
-              <button class="seg-btn" data-value="linkedin">LinkedIn</button>
-              <button class="seg-btn" data-value="twitter">Twitter/X</button>
-            </div>
-            <p class="setting-hint">Select a platform to auto-configure aspect ratio, duration &amp; tone. Override below if needed.</p>
+        <div class="card-top-bar">
+          <button class="back-btn" onclick="confirmBack()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            Back
+          </button>
+          <div class="processing-badge">
+            <span class="processing-dot"></span>
+            PROCESSING
           </div>
+        </div>
 
-          <!-- Language -->
-          <div class="setting-group" style="grid-column:1/-1">
-            <label class="setting-label">Language</label>
-            <div class="seg-control" id="languageSeg">
-              <button class="seg-btn active" data-value="en">English</button>
-              <button class="seg-btn" data-value="hi">Hindi</button>
-              <button class="seg-btn" data-value="bn">Bengali</button>
-              <button class="seg-btn" data-value="te">Telugu</button>
-              <button class="seg-btn" data-value="mr">Marathi</button>
-              <button class="seg-btn" data-value="ta">Tamil</button>
-              <button class="seg-btn" data-value="gu">Gujarati</button>
-              <button class="seg-btn" data-value="kn">Kannada</button>
-              <button class="seg-btn" data-value="ml">Malayalam</button>
-              <button class="seg-btn" data-value="pa">Punjabi</button>
-              <button class="seg-btn" data-value="or">Odia</button>
-              <button class="seg-btn" data-value="as">Assamese</button>
-            </div>
-            <p class="setting-hint">Script &amp; voiceover will be generated in the selected language via gTTS.</p>
+        <div class="progress-header">
+          <h2 class="card-title">Generating Your Video</h2>
+          <div class="progress-pct-wrap">
+            <span class="progress-pct" id="progressPct">0%</span>
+            <span class="progress-pct-label">complete</span>
           </div>
+        </div>
 
-          <div class="settings-row">
-
-            <div class="setting-group">
-              <label class="setting-label">Duration</label>
-              <div class="seg-control" id="durationSeg">
-                <button class="seg-btn" data-value="30">30s</button>
-                <button class="seg-btn active" data-value="60">1 min</button>
-                <button class="seg-btn" data-value="90">90s</button>
-                <button class="seg-btn" data-value="120">2 min</button>
-                <button class="seg-btn" data-value="180">3 min</button>
-                <button class="seg-btn" data-value="300">5 min</button>
-              </div>
-              <p class="setting-hint">Max 5 min per generation. For longer content, generate multiple videos.</p>
-            </div>
-
-            <div class="setting-group">
-              <label class="setting-label">Tone</label>
-              <div class="seg-control" id="toneSeg">
-                <button class="seg-btn active" data-value="educational">Educational</button>
-                <button class="seg-btn" data-value="professional">Professional</button>
-                <button class="seg-btn" data-value="motivational">Motivational</button>
-                <button class="seg-btn" data-value="casual">Casual</button>
-                <button class="seg-btn" data-value="entertaining">Entertaining</button>
-              </div>
-            </div>
-
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar" style="width:0%">
+            <div class="progress-bar-glow"></div>
           </div>
+        </div>
+        <p id="stepDetail" class="step-detail-text"></p>
 
-          <div class="settings-row">
-
-            <div class="setting-group">
-              <label class="setting-label">Image Style</label>
-              <div class="seg-control" id="styleSeg">
-                <button class="seg-btn active" data-value="photorealistic">Photorealistic</button>
-                <button class="seg-btn" data-value="cinematic">Cinematic</button>
-                <button class="seg-btn" data-value="documentary">Documentary</button>
+        <!-- Two-column layout: pipeline left, preview right -->
+        <div class="progress-layout">
+          <div class="progress-left">
+            <div class="pipeline-steps" id="pipelineSteps">
+              <div class="step" data-step="analyzing_prompt">
+                <div class="step-dot"><span class="step-num">1</span></div>
+                <div class="step-info"><span class="step-name">Analyzing Prompt</span><span class="step-desc">Understanding your video idea</span></div>
+                <div class="step-status-badge"></div>
               </div>
-            </div>
-
-            <div class="setting-group">
-              <label class="setting-label">Aspect Ratio</label>
-              <div class="seg-control" id="ratioSeg">
-                <button class="seg-btn active" data-value="16:9">16:9 Landscape</button>
-                <button class="seg-btn" data-value="9:16">9:16 Vertical</button>
-                <button class="seg-btn" data-value="1:1">1:1 Square</button>
+              <div class="step" data-step="generating_script">
+                <div class="step-dot"><span class="step-num">2</span></div>
+                <div class="step-info"><span class="step-name">Writing Script</span><span class="step-desc">Generating on-topic narration</span></div>
+                <div class="step-status-badge"></div>
               </div>
-            </div>
-
-          </div>
-
-          <div class="settings-row">
-
-            <div class="setting-group">
-              <label class="setting-label">Voiceover</label>
-              <div class="seg-control" id="voiceSeg">
-                <button class="seg-btn active" data-value="auto">Auto</button>
-                <button class="seg-btn" data-value="female">Female</button>
-                <button class="seg-btn" data-value="male">Male</button>
+              <div class="step" data-step="planning_scenes">
+                <div class="step-dot"><span class="step-num">3</span></div>
+                <div class="step-info"><span class="step-name">Planning Scenes</span><span class="step-desc">Breaking script into visual scenes</span></div>
+                <div class="step-status-badge"></div>
+              </div>
+              <div class="step" data-step="generating_images">
+                <div class="step-dot"><span class="step-num">4</span></div>
+                <div class="step-info"><span class="step-name">Generating Images</span><span class="step-desc">Creating visuals with Leonardo.ai</span></div>
+                <div class="step-status-badge"></div>
+              </div>
+              <div class="step" data-step="generating_clips">
+                <div class="step-dot"><span class="step-num">5</span></div>
+                <div class="step-info"><span class="step-name">Animating Scenes</span><span class="step-desc">Creating video clips with Kling.ai</span></div>
+                <div class="step-status-badge"></div>
+              </div>
+              <div class="step" data-step="generating_voices">
+                <div class="step-dot"><span class="step-num">6</span></div>
+                <div class="step-info"><span class="step-name">Voiceover Synthesis</span><span class="step-desc">Generating narration audio</span></div>
+                <div class="step-status-badge"></div>
+              </div>
+              <div class="step" data-step="generating_music">
+                <div class="step-dot"><span class="step-num">7</span></div>
+                <div class="step-info"><span class="step-name">Composing Music</span><span class="step-desc">Generating background track with Suno</span></div>
+                <div class="step-status-badge"></div>
+              </div>
+              <div class="step" data-step="assembling_video">
+                <div class="step-dot"><span class="step-num">8</span></div>
+                <div class="step-info"><span class="step-name">Assembling Video</span><span class="step-desc">Merging clips, audio and music via FFmpeg</span></div>
+                <div class="step-status-badge"></div>
+              </div>
+              <div class="step" data-step="completed">
+                <div class="step-dot"><span class="step-num">9</span></div>
+                <div class="step-info"><span class="step-name">Complete</span><span class="step-desc">Your video is ready</span></div>
+                <div class="step-status-badge"></div>
               </div>
             </div>
+          </div><!-- .progress-left -->
 
-            <div class="setting-group">
-              <label class="setting-label">Background Music</label>
-              <div class="seg-control" id="musicSeg">
-                <button class="seg-btn active" data-value="true">On</button>
-                <button class="seg-btn" data-value="false">Off</button>
-              </div>
+          <div class="progress-right" id="progressRight">
+            <div id="scriptPreview" class="script-preview hidden">
+              <h3 class="section-label">Generated Script</h3>
+              <div class="script-text" id="scriptText"></div>
             </div>
+            <div id="scenesPreview" class="scenes-preview hidden">
+              <h3 class="section-label">Scene Breakdown</h3>
+              <div class="scenes-grid" id="scenesGrid"></div>
+            </div>
+          </div><!-- .progress-right -->
+        </div><!-- .progress-layout -->
+      </section>
 
-          </div>
-
-        </div>
-      </div>
-
-      <button id="generateBtn" class="btn btn-primary" onclick="startGeneration()">
-        <span class="btn-icon">&#9654;</span>
-        Generate Video
-      </button>
-
-      <div id="errorMsg" class="error-msg hidden"></div>
-    </section>
-
-    <!-- Progress Card -->
-    <section class="card progress-card hidden" id="progressSection">
-      <div class="progress-header">
-        <h2 class="card-title">Generating Your Video</h2>
-        <span class="progress-pct" id="progressPct">0%</span>
-      </div>
-
-      <div class="progress-bar-track">
-        <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
-      </div>
-      <p id="stepDetail" style="text-align:center;font-size:0.82rem;color:#a0aec0;margin:6px 0 0;min-height:1.2em;"></p>
-
-      <div class="pipeline-steps" id="pipelineSteps">
-        <div class="step" data-step="analyzing_prompt">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Analyzing Prompt</span>
-            <span class="step-desc">Understanding your video idea</span>
-          </div>
-        </div>
-        <div class="step" data-step="generating_script">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Writing Script</span>
-            <span class="step-desc">Generating on-topic narration</span>
-          </div>
-        </div>
-        <div class="step" data-step="planning_scenes">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Planning Scenes</span>
-            <span class="step-desc">Breaking script into visual scenes</span>
-          </div>
-        </div>
-        <div class="step" data-step="generating_images">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Generating Images</span>
-            <span class="step-desc">Creating topic-specific visuals with Leonardo.ai</span>
-          </div>
-        </div>
-        <div class="step" data-step="generating_clips">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Generating Video Clips</span>
-            <span class="step-desc">Animating scenes with Kling.ai</span>
-          </div>
-        </div>
-        <div class="step" data-step="generating_voices">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Generating Voiceover</span>
-            <span class="step-desc">Synthesizing narration audio</span>
-          </div>
-        </div>
-        <div class="step" data-step="generating_music">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Composing Music</span>
-            <span class="step-desc">Generating background track with Suno</span>
-          </div>
-        </div>
-        <div class="step" data-step="assembling_video">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Assembling Video</span>
-            <span class="step-desc">Merging clips, audio and music</span>
-          </div>
-        </div>
-        <div class="step" data-step="completed">
-          <div class="step-dot"></div>
-          <div class="step-info">
-            <span class="step-name">Complete</span>
-            <span class="step-desc">Your video is ready</span>
-          </div>
-        </div>
-      </div>
-
-      <div id="scriptPreview" class="script-preview hidden">
-        <h3 class="section-label">Generated Script</h3>
-        <div class="script-text" id="scriptText"></div>
-      </div>
-
-      <div id="scenesPreview" class="scenes-preview hidden">
-        <h3 class="section-label">Scene Breakdown</h3>
-        <div class="scenes-grid" id="scenesGrid"></div>
-      </div>
-    </section>
-
-    <!-- Error Card -->
-    <section class="card error-card hidden" id="errorSection">
-      <div class="error-icon">&#9888;</div>
-      <h2 class="card-title">Generation Failed</h2>
-      <p class="error-detail" id="errorDetail">An error occurred during video generation.</p>
-      <button class="btn btn-secondary" onclick="resetUI()">Try Again</button>
-    </section>
-
-    <!-- Result Card -->
-    <section class="card result-card hidden" id="resultSection">
-      <div class="result-header">
-        <div class="success-badge">&#10003; Video Ready</div>
-        <h2 class="card-title">Your Video Is Ready!</h2>
-        <p class="card-subtitle">Your AI-generated video has been created successfully.</p>
-      </div>
-
-      <div class="video-container">
-        <video id="videoPlayer" class="video-player" controls preload="metadata">
-          Your browser does not support the video tag.
-        </video>
-      </div>
-
-      <div class="result-actions">
-        <a id="downloadBtn" class="btn btn-primary" href="#" download>
-          <span class="btn-icon">&#8595;</span>
-          Download Video
-        </a>
-        <button class="btn btn-secondary" onclick="resetUI()">
-          <span class="btn-icon">&#43;</span>
-          Create Another
+      <!-- Error Card -->
+      <section class="card error-card hidden" id="errorSection">
+        <div class="card-corner tl"></div><div class="card-corner tr"></div>
+        <div class="card-corner bl"></div><div class="card-corner br"></div>
+        <button class="back-btn back-btn-standalone" onclick="resetUI()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          Back
         </button>
+        <div class="error-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="52" height="52">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h2 class="card-title">Generation Failed</h2>
+        <p class="error-detail" id="errorDetail">An error occurred during video generation.</p>
+        <button class="btn btn-secondary" onclick="resetUI()">Try Again</button>
+      </section>
+
+      <!-- Result Card -->
+      <section class="card result-card hidden" id="resultSection">
+        <div class="card-corner tl"></div><div class="card-corner tr"></div>
+        <div class="card-corner bl"></div><div class="card-corner br"></div>
+
+        <div class="result-header">
+          <div class="success-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="13" height="13"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Video Ready
+          </div>
+          <h2 class="card-title">Your Video Is Ready!</h2>
+          <p class="card-subtitle">Your AI-generated video has been created successfully.</p>
+        </div>
+
+        <div class="video-container">
+          <video id="videoPlayer" class="video-player" controls preload="metadata">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+
+        <div class="result-actions">
+          <a id="downloadBtn" class="btn btn-primary" href="#" download>
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Video
+            <span class="btn-shine"></span>
+          </a>
+          <button class="btn btn-secondary" onclick="resetUI()">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Another
+          </button>
+        </div>
+
+        <!-- Edit & Remake Panel -->
+        <div class="settings-panel remake-panel">
+          <button class="settings-toggle" id="remakeToggle" onclick="toggleRemake()">
+            <svg class="settings-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit &amp; Remake
+            <span class="settings-arrow" id="remakeArrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </span>
+          </button>
+          <div class="settings-body" id="remakeBody">
+            <p class="setting-hint" style="margin-bottom:1rem">Refine your prompt or tweak settings below, then click <strong>Remake</strong> to generate a new version.</p>
+            <div class="prompt-wrapper" style="margin-bottom:1rem">
+              <textarea id="remakePromptInput" class="prompt-input" rows="4" maxlength="3000" placeholder="Edit your video prompt here…"></textarea>
+              <div class="char-count"><span id="remakeCharCount">0</span> / 3000</div>
+            </div>
+            <div class="settings-row">
+              <div class="setting-group">
+                <label class="setting-label">Duration</label>
+                <div class="seg-control" id="remakeDurationSeg">
+                  <button class="seg-btn" data-value="30">30s</button>
+                  <button class="seg-btn active" data-value="60">1 min</button>
+                  <button class="seg-btn" data-value="90">90s</button>
+                  <button class="seg-btn" data-value="120">2 min</button>
+                  <button class="seg-btn" data-value="180">3 min</button>
+                  <button class="seg-btn" data-value="300">5 min</button>
+                </div>
+              </div>
+              <div class="setting-group">
+                <label class="setting-label">Tone</label>
+                <div class="seg-control" id="remakeToneSeg">
+                  <button class="seg-btn active" data-value="educational">Educational</button>
+                  <button class="seg-btn" data-value="professional">Professional</button>
+                  <button class="seg-btn" data-value="motivational">Motivational</button>
+                  <button class="seg-btn" data-value="casual">Casual</button>
+                  <button class="seg-btn" data-value="entertaining">Entertaining</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="setting-group">
+                <label class="setting-label">Image Style</label>
+                <div class="seg-control" id="remakeStyleSeg">
+                  <button class="seg-btn active" data-value="photorealistic">Photorealistic</button>
+                  <button class="seg-btn" data-value="cinematic">Cinematic</button>
+                  <button class="seg-btn" data-value="documentary">Documentary</button>
+                </div>
+              </div>
+              <div class="setting-group">
+                <label class="setting-label">Aspect Ratio</label>
+                <div class="seg-control" id="remakeRatioSeg">
+                  <button class="seg-btn active" data-value="16:9">16:9</button>
+                  <button class="seg-btn" data-value="9:16">9:16</button>
+                  <button class="seg-btn" data-value="1:1">1:1</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="setting-group">
+                <label class="setting-label">Language</label>
+                <div class="seg-control" id="remakeLanguageSeg">
+                  <button class="seg-btn active" data-value="en">English</button>
+                  <button class="seg-btn" data-value="hi">Hindi</button>
+                  <button class="seg-btn" data-value="bn">Bengali</button>
+                  <button class="seg-btn" data-value="te">Telugu</button>
+                  <button class="seg-btn" data-value="mr">Marathi</button>
+                  <button class="seg-btn" data-value="ta">Tamil</button>
+                  <button class="seg-btn" data-value="gu">Gujarati</button>
+                  <button class="seg-btn" data-value="kn">Kannada</button>
+                  <button class="seg-btn" data-value="ml">Malayalam</button>
+                  <button class="seg-btn" data-value="pa">Punjabi</button>
+                </div>
+              </div>
+              <div class="setting-group">
+                <label class="setting-label">Background Music</label>
+                <div class="seg-control" id="remakeMusicSeg">
+                  <button class="seg-btn active" data-value="true">On</button>
+                  <button class="seg-btn" data-value="false">Off</button>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="startRemake()" style="width:100%;margin-top:0.75rem">
+              <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+              Remake Video
+              <span class="btn-shine"></span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- #studioView -->
+
+    <!-- ══════════════════════ DASHBOARD VIEW ══════════════════════ -->
+    <div id="dashboardView">
+      <div class="dashboard-header">
+        <div class="dashboard-title-row">
+          <div>
+            <h2 class="dashboard-title">My Videos</h2>
+            <p class="dashboard-subtitle">All your AI-generated videos in one place</p>
+          </div>
+          <div class="dashboard-header-actions">
+            <button class="btn btn-primary" onclick="showStudio()">
+              <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+              Create New Video
+              <span class="btn-shine"></span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">
+              <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="dashboard-stats" id="dashboardStats"></div>
       </div>
-    </section>
+      <div id="dashboardGrid" class="dashboard-grid"></div>
+    </div><!-- #dashboardView -->
 
   </main>
 
   <footer class="footer">
-    <p>Powered by Groq &middot; Leonardo.ai &middot; Veo 3.1 &middot; Suno &middot; FFmpeg &nbsp;&mdash;&nbsp; YouTube &middot; TikTok &middot; Reels &middot; LinkedIn ready</p>
+    <div class="footer-inner">
+      <div class="footer-row">
+        <span class="footer-label">Powered by</span>
+        <span class="footer-tech">Groq</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">Leonardo.ai</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">Kling.ai</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">Veo 3.1</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">Suno</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">FFmpeg</span>
+      </div>
+      <div class="footer-row">
+        <span class="footer-label">Ready for</span>
+        <span class="footer-tech">YouTube</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">TikTok</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">Instagram Reels</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">LinkedIn</span>
+        <span class="footer-sep">&middot;</span>
+        <span class="footer-tech">Twitter/X</span>
+      </div>
+    </div>
   </footer>
 
   <script src="/static/script.js"></script>

@@ -128,19 +128,37 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None) -> 
                            50 + int(13 * clip_done / n),
                            {"step_detail": f"Clips: {clip_done}/{n} done"})
 
-        # ── Stage 6: Voices (sequential — pyttsx3 is not thread-safe) ────────
+        # ── Stage 6: Voices ───────────────────────────────────────────────────
+        # gTTS (used for all non-English, or when TTS_ENGINE=gtts) is thread-safe.
+        # pyttsx3 uses Windows COM and must stay sequential.
+        import os as _os
+        _tts_engine = _os.getenv("TTS_ENGINE", "pyttsx3").lower()
+        use_parallel_voice = (language != "en") or (_tts_engine == "gtts")
+        voice_workers = min(n, 4) if use_parallel_voice else 1
+
         _set_stage(project_id, "generating_voices", 63,
                    {"step_detail": f"Generating {n} voice tracks…"})
-        audio_paths: list[str] = []
-        for i, scene in enumerate(scenes):
-            narration  = scene.get("narration", f"Scene {i + 1}.")
-            audio_path = generate_voice(narration, project_id, i + 1,
-                                        voice_gender=voice_gen, language=language)
-            audio_paths.append(audio_path)
-            _set_stage(project_id, "generating_voices",
-                       63 + int(10 * (i + 1) / n),
-                       {"step_detail": f"Voice {i + 1}/{n} done",
-                        "audio_paths": audio_paths})
+        audio_paths: list[str | None] = [None] * n
+
+        def _gen_voice(idx: int, scene: dict):
+            narration = scene.get("narration", f"Scene {idx + 1}.")
+            return idx, generate_voice(narration, project_id, idx + 1,
+                                       voice_gender=voice_gen, language=language)
+
+        voice_done = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=voice_workers,
+                                                    thread_name_prefix="voice") as pool:
+            futs = {pool.submit(_gen_voice, i, s): i for i, s in enumerate(scenes)}
+            for fut in concurrent.futures.as_completed(futs):
+                try:
+                    idx, path = fut.result()
+                    audio_paths[idx] = path
+                except Exception as exc:
+                    logger.error("Voice future failed: %s", exc)
+                voice_done += 1
+                _set_stage(project_id, "generating_voices",
+                           63 + int(10 * voice_done / n),
+                           {"step_detail": f"Voice {voice_done}/{n} done"})
 
         # ── Stage 7: Music (collect background result) ────────────────────────
         music_path = None

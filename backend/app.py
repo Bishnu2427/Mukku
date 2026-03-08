@@ -5,6 +5,7 @@ import sys
 import uuid
 import logging
 import threading
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 FRONTEND_DIR = ROOT / "frontend"
 VIDEOS_DIR   = ROOT / "media" / "videos"
+THUMBS_DIR   = ROOT / "media" / "thumbs"
 
 app = Flask(
     __name__,
@@ -43,6 +45,14 @@ VALID_PLATFORMS    = {"youtube", "youtube_shorts", "tiktok", "instagram_reels",
                       "instagram_post", "linkedin", "twitter", ""}
 VALID_LANGUAGES    = {"en", "hi", "bn", "te", "mr", "ta", "gu", "kn", "ml", "pa", "or", "as"}
 MAX_DURATION_SECS  = 600   # 10 minutes hard cap
+
+
+def _ffmpeg_bin() -> str:
+    try:
+        from imageio_ffmpeg import get_ffmpeg_exe
+        return get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
 
 
 @app.route("/")
@@ -62,9 +72,7 @@ def generate():
     if len(prompt) > 3000:
         return jsonify({"error": "Prompt is too long (max 3000 characters)."}), 400
 
-    # Pull user settings, apply sensible defaults + bounds
     raw_settings = data.get("settings", {}) or {}
-
     duration = int(raw_settings.get("duration", 60))
     duration = max(15, min(duration, MAX_DURATION_SECS))
 
@@ -75,13 +83,13 @@ def generate():
         "aspect_ratio":  raw_settings.get("aspect_ratio", "16:9")    if raw_settings.get("aspect_ratio") in VALID_RATIOS else "16:9",
         "voice_gender":  raw_settings.get("voice_gender", "auto")    if raw_settings.get("voice_gender") in VALID_VOICES else "auto",
         "include_music": bool(raw_settings.get("include_music", True)),
-        "scene_count":   int(raw_settings.get("scene_count", 0)),     # 0 = auto
+        "scene_count":   int(raw_settings.get("scene_count", 0)),
         "platform":      raw_settings.get("platform", "")             if raw_settings.get("platform", "") in VALID_PLATFORMS else "",
         "language":      raw_settings.get("language", "en")            if raw_settings.get("language", "en") in VALID_LANGUAGES else "en",
     }
 
     project_id = uuid.uuid4().hex[:10]
-    create_project(project_id, prompt)
+    create_project(project_id, prompt, settings)
 
     thread = threading.Thread(
         target=run_pipeline,
@@ -112,6 +120,8 @@ def status(project_id: str):
         "script":       project.get("script"),
         "scenes":       project.get("scenes", []),
         "error":        project.get("error"),
+        "prompt":       project.get("prompt", ""),
+        "settings":     project.get("settings", {}),
         "created_at":   project.get("created_at", "").isoformat() if project.get("created_at") else None,
     })
 
@@ -139,24 +149,66 @@ def get_video(project_id: str):
     )
 
 
+@app.route("/thumbnail/<project_id>", methods=["GET"])
+def get_thumbnail(project_id: str):
+    """Extract and return a JPEG thumbnail from the first frame of the video."""
+    project = get_project(project_id)
+    if not project or project.get("status") != "completed":
+        return jsonify({"error": "not ready"}), 404
+
+    video_path = project.get("video_path", "")
+    if not video_path or not os.path.exists(video_path):
+        return jsonify({"error": "video not found"}), 404
+
+    THUMBS_DIR.mkdir(parents=True, exist_ok=True)
+    thumb_path = str(THUMBS_DIR / f"{project_id}.jpg")
+
+    if not os.path.exists(thumb_path):
+        ff = _ffmpeg_bin()
+        r = subprocess.run(
+            [ff, "-y", "-i", video_path, "-ss", "0.5",
+             "-vframes", "1", "-q:v", "5", "-vf", "scale=480:-1", thumb_path],
+            capture_output=True,
+        )
+        if r.returncode != 0 or not os.path.exists(thumb_path):
+            return jsonify({"error": "thumbnail failed"}), 500
+
+    return send_file(thumb_path, mimetype="image/jpeg",
+                     max_age=86400)  # cache 24h
+
+
 @app.route("/projects", methods=["GET"])
 def projects():
-    limit = min(int(request.args.get("limit", 10)), 50)
+    limit = min(int(request.args.get("limit", 20)), 50)
     items = list_projects(limit)
+    result = []
     for item in items:
         for k in ("created_at", "updated_at"):
             if item.get(k):
                 item[k] = item[k].isoformat()
-    return jsonify({"projects": items})
+        # Lightweight fields only — omit large arrays
+        result.append({
+            "project_id":    item.get("project_id"),
+            "prompt":        item.get("prompt", ""),
+            "status":        item.get("status"),
+            "progress":      item.get("progress", 0),
+            "settings":      item.get("settings", {}),
+            "created_at":    item.get("created_at"),
+            "has_video":     bool(item.get("video_path") and os.path.exists(item.get("video_path", ""))),
+        })
+    return jsonify({"projects": result, "total": len(result)})
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "version": "1.0.0"})
+    return jsonify({"status": "ok", "version": "2.0.0"})
 
 
 if __name__ == "__main__":
     port  = int(os.getenv("FLASK_PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     logger.info("Starting AI Content Agent on http://0.0.0.0:%d", port)
-    app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False)
+    # threaded=True ensures each request gets its own thread —
+    # prevents pipeline background threads from blocking new API calls.
+    app.run(host="0.0.0.0", port=port, debug=debug,
+            use_reloader=False, threaded=True)

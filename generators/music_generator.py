@@ -70,9 +70,11 @@ def _headers() -> dict:
 def _submit(prompt: str) -> str:
     """Submit a music generation job and return the task_id."""
     body = {
-        "prompt":     prompt,
-        "wait_audio": False,
-        "customMode": False,
+        "prompt":       prompt,
+        "model":        "V3_5",   # required — API rejects requests without a model value
+        "instrumental": True,     # required — API rejects requests without this field
+        "wait_audio":   False,
+        "customMode":   False,
     }
     resp = requests.post(
         f"{SUNO_BASE}/api/v1/generate",

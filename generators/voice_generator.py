@@ -6,7 +6,12 @@ Note: Coqui TTS is excluded — incompatible with Python 3.12+.
 import os
 import logging
 import subprocess
+import threading
 from pathlib import Path
+
+# pyttsx3 uses Windows COM — serialise all calls to prevent inter-thread deadlocks
+# that could hang the pipeline thread and make Flask appear unresponsive.
+_pyttsx3_lock = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
@@ -60,34 +65,46 @@ def generate_voice(text: str, project_id: str, scene_number: int,
 
 
 def _try_pyttsx3(text: str, filepath: str, voice_gender: str = "auto") -> bool:
-    try:
-        import pyttsx3
+    with _pyttsx3_lock:  # serialise COM calls — prevents inter-thread deadlocks
+        try:
+            # Initialise COM apartment for this thread (Windows only)
+            try:
+                import pythoncom
+                pythoncom.CoInitialize()
+            except ImportError:
+                pass
 
-        engine = pyttsx3.init()
-        engine.setProperty("rate", 160)
-        engine.setProperty("volume", 1.0)
+            import pyttsx3
+            engine = pyttsx3.init()
+            engine.setProperty("rate", 160)
+            engine.setProperty("volume", 1.0)
 
-        voices = engine.getProperty("voices")
-        want_female = voice_gender in ("female", "auto")
+            voices = engine.getProperty("voices")
+            want_female = voice_gender in ("female", "auto")
+            for v in voices:
+                name = v.name.lower()
+                vid  = v.id.lower()
+                if want_female and ("female" in name or "zira" in vid or "hazel" in vid):
+                    engine.setProperty("voice", v.id)
+                    break
+                if voice_gender == "male" and ("male" in name or "david" in vid or "mark" in vid):
+                    engine.setProperty("voice", v.id)
+                    break
 
-        for v in voices:
-            name = v.name.lower()
-            vid  = v.id.lower()
-            if want_female and ("female" in name or "zira" in vid or "hazel" in vid):
-                engine.setProperty("voice", v.id)
-                break
-            if voice_gender == "male" and ("male" in name or "david" in vid or "mark" in vid):
-                engine.setProperty("voice", v.id)
-                break
-
-        engine.save_to_file(text, filepath)
-        engine.runAndWait()
-        engine.stop()
-        logger.info("pyttsx3 generated: %s", filepath)
-        return True
-    except Exception as exc:
-        logger.warning("pyttsx3 failed: %s", exc)
-        return False
+            engine.save_to_file(text, filepath)
+            engine.runAndWait()
+            engine.stop()
+            logger.info("pyttsx3 generated: %s", filepath)
+            return True
+        except Exception as exc:
+            logger.warning("pyttsx3 failed: %s", exc)
+            return False
+        finally:
+            try:
+                import pythoncom
+                pythoncom.CoUninitialize()
+            except ImportError:
+                pass
 
 
 def _try_gtts(text: str, filepath: str, lang: str = "en") -> bool:

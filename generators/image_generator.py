@@ -1,9 +1,15 @@
-"""Image generation — tries Leonardo.ai, falls back to local SD, then a PIL placeholder."""
+"""Image generation — tries Leonardo.ai, falls back to PIL placeholder.
+
+NOTE: Stable Diffusion local fallback is disabled by default because it is
+extremely slow on CPU (20–30 min/image) and blocks the pipeline for hours.
+Set SKIP_SD=false in .env to re-enable it if you have a CUDA GPU available.
+"""
 
 import os
 import time
 import logging
 import requests
+import concurrent.futures
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -48,24 +54,41 @@ _STYLE_CONFIG = {
 
 def generate_image(visual_prompt: str, project_id: str, scene_number: int,
                    image_style: str = "photorealistic", aspect_ratio: str = "16:9") -> str:
-    """Generate a scene image and return the local file path of the saved PNG."""
+    """Generate a scene image and return the local file path of the saved PNG.
+
+    Pipeline:
+      1. Leonardo.ai (hard 3-minute per-image timeout)
+      2. Local Stable Diffusion (only if SKIP_SD=false AND CUDA is available)
+      3. PIL gradient placeholder (always succeeds immediately)
+    """
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{project_id}_scene{scene_number:02d}.png"
     filepath = str(IMAGES_DIR / filename)
 
+    # Skip SD by default — it is catastrophically slow on CPU and blocks the
+    # entire pipeline for hours when Leonardo.ai fails.
+    skip_sd = os.getenv("SKIP_SD", "true").lower() != "false"
+
     if LEONARDO_API_KEY:
         try:
-            url = _leonardo_generate(visual_prompt, image_style, aspect_ratio)
+            # Wrap in a thread so we can enforce a hard wall-clock timeout.
+            # Leonardo polls up to 150 s internally; outer limit is 3 minutes.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                fut = ex.submit(_leonardo_generate, visual_prompt, image_style, aspect_ratio)
+                url = fut.result(timeout=180)
             _download_file(url, filepath)
             logger.info("Leonardo.ai image saved: %s", filepath)
             return filepath
+        except concurrent.futures.TimeoutError:
+            logger.warning("Leonardo.ai hard-timeout (180 s) for scene %d — using placeholder.", scene_number)
         except Exception as exc:
-            logger.warning("Leonardo.ai failed (%s) — trying local SD.", exc)
+            logger.warning("Leonardo.ai failed (%s) — skipping to placeholder.", exc)
 
-    try:
-        return _generate_with_sd(visual_prompt, filepath)
-    except Exception as exc:
-        logger.warning("Stable Diffusion failed (%s) — using placeholder.", exc)
+    if not skip_sd:
+        try:
+            return _generate_with_sd(visual_prompt, filepath)
+        except Exception as exc:
+            logger.warning("Stable Diffusion failed (%s) — using placeholder.", exc)
 
     return _generate_placeholder(visual_prompt, filepath, scene_number)
 
@@ -106,8 +129,8 @@ def _leonardo_generate(prompt: str, image_style: str = "photorealistic",
     gen_id = resp.json()["sdGenerationJob"]["generationId"]
     logger.info("Leonardo.ai generation queued: %s", gen_id)
 
-    # poll until complete (max ~2.5 minutes before falling back)
-    for attempt in range(15):
+    # poll until complete (max ~2 minutes; outer wrapper enforces 3-min hard cap)
+    for attempt in range(12):
         time.sleep(10)
         r = requests.get(
             f"{LEONARDO_BASE}/generations/{gen_id}",
@@ -126,7 +149,7 @@ def _leonardo_generate(prompt: str, image_style: str = "photorealistic",
         if status == "FAILED":
             raise RuntimeError("Leonardo generation job failed.")
 
-        logger.info("Leonardo.ai poll %d/15 — status: %s", attempt + 1, status)
+        logger.info("Leonardo.ai poll %d/12 — status: %s", attempt + 1, status)
 
     raise TimeoutError("Leonardo.ai timed out — falling back to placeholder.")
 

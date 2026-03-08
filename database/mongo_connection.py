@@ -20,11 +20,12 @@ def _get_db():
     return _db
 
 
-def create_project(project_id: str, prompt: str) -> dict:
+def create_project(project_id: str, prompt: str, settings: dict = None) -> dict:
     """Insert a new project document and return it."""
     project = {
         "project_id": project_id,
         "prompt": prompt,
+        "settings": settings or {},
         "status": "queued",
         "current_step": "queued",
         "progress": 0,

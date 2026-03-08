@@ -244,9 +244,12 @@ def _render_scene_to_disk(
     scene_idx: int,
     narration: str = "",
 ) -> None:
-    """Render one (clip + audio + fades) to MP4 then close everything to free RAM."""
-    from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
-    from moviepy.video.fx.all import fadein, fadeout
+    """Render one (clip + audio + fades) to MP4 then close everything to free RAM.
+
+    Compatible with MoviePy 2.x (dropped moviepy.editor; renamed several methods).
+    """
+    # MoviePy 2.x: import directly from moviepy, not from moviepy.editor
+    from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
 
     audio    = AudioFileClip(audio_path)
     duration = audio.duration
@@ -256,24 +259,33 @@ def _render_scene_to_disk(
         if raw.duration < duration:
             loops = int(duration / raw.duration) + 1
             raw = concatenate_videoclips([raw] * loops)
-        clip = raw.subclip(0, duration).resize((vid_w, vid_h))
+        # subclip → subclipped, resize → resized in MoviePy 2.x
+        clip = raw.subclipped(0, duration).resized((vid_w, vid_h))
     else:
         clip = _ken_burns_clip(clip_path or "", duration, vid_w, vid_h, scene_idx)
 
-    clip = clip.set_audio(audio)
-    clip = fadein(clip, FADE_DUR)
-    clip = fadeout(clip, FADE_DUR)
+    clip = clip.with_audio(audio)
+
+    # Apply fade-in/out. MoviePy 2.x dropped .fadein()/.fadeout() as clip methods;
+    # they are now FX classes applied via with_effects(). Wrap in try/except so the
+    # video still renders correctly even if the FX import path changes between versions.
+    try:
+        from moviepy.video.fx import FadeIn, FadeOut
+        clip = clip.with_effects([FadeIn(duration=FADE_DUR), FadeOut(duration=FADE_DUR)])
+    except Exception:
+        pass  # fades are cosmetic — video is still valid without them
 
     tmp_audio = os.path.join(tempfile.gettempdir(),
                               f"{project_id}_s{scene_idx}_tmp.m4a")
     try:
+        # verbose param removed in MoviePy 2.x; logger=None suppresses output
         clip.write_videofile(
             output_path,
             fps=FPS, codec="libx264", audio_codec="aac",
             temp_audiofile=tmp_audio, remove_temp=True,
             threads=2, preset="fast",
             ffmpeg_params=["-crf", "23"],
-            verbose=False, logger=None,
+            logger=None,
         )
     finally:
         clip.close()
@@ -450,11 +462,12 @@ def _moviepy_static_clip(image_path: str, clip_path: str, duration: int,
     comp = _ken_burns_clip(image_path, duration, vid_w, vid_h, scene_idx)
     tmp  = os.path.join(tempfile.gettempdir(), "tmp_clip.m4a")
     try:
+        # verbose removed in MoviePy 2.x
         comp.write_videofile(
             clip_path, fps=FPS, codec="libx264",
             temp_audiofile=tmp, remove_temp=True,
             threads=2, preset="fast",
-            verbose=False, logger=None,
+            logger=None,
         )
     finally:
         comp.close()
@@ -471,8 +484,10 @@ def _ken_burns_clip(image_path: str, duration: float,
         1 — slow zoom out
         2 — pan left  (camera moves left across scene)
         3 — pan right (camera moves right across scene)
+
+    MoviePy 2.x: import from moviepy directly; use resized/with_duration/with_position.
     """
-    from moviepy.editor import ImageClip, CompositeVideoClip, ColorClip
+    from moviepy import ImageClip, CompositeVideoClip, ColorClip
 
     motion = scene_idx % 4
     zoom   = 0.06          # 6 % zoom travel
@@ -487,33 +502,34 @@ def _ken_burns_clip(image_path: str, duration: float,
     bg = ColorClip((vid_w, vid_h), color=[0, 0, 0], duration=duration)
 
     if motion == 0:   # zoom in
-        img = raw.resize((fit_w, fit_h)).set_duration(duration)
-        img = img.resize(lambda t: 1 + zoom * t / max(duration, 1))
-        return CompositeVideoClip([bg, img.set_position("center")], size=(vid_w, vid_h))
+        # resized / with_duration / with_position replace resize/set_duration/set_position in 2.x
+        img = raw.resized((fit_w, fit_h)).with_duration(duration)
+        img = img.resized(lambda t: 1 + zoom * t / max(duration, 1))
+        return CompositeVideoClip([bg, img.with_position("center")], size=(vid_w, vid_h))
 
     elif motion == 1:  # zoom out
-        img = raw.resize((fit_w, fit_h)).set_duration(duration)
-        img = img.resize(lambda t: 1 + zoom * (1 - t / max(duration, 1)))
-        return CompositeVideoClip([bg, img.set_position("center")], size=(vid_w, vid_h))
+        img = raw.resized((fit_w, fit_h)).with_duration(duration)
+        img = img.resized(lambda t: 1 + zoom * (1 - t / max(duration, 1)))
+        return CompositeVideoClip([bg, img.with_position("center")], size=(vid_w, vid_h))
 
     elif motion == 2:  # pan left  (content drifts leftward)
         pan_w = int(fit_w * (1 + pan_ex))
-        img   = raw.resize((pan_w, fit_h)).set_duration(duration)
+        img   = raw.resized((pan_w, fit_h)).with_duration(duration)
         travel = pan_w - vid_w
         cy     = (fit_h - vid_h) // 2
         def _pos_left(t, tr=travel, oy=cy, dur=duration):
             return (-int(tr * t / max(dur, 1)), -oy)
-        img = img.set_position(_pos_left)
+        img = img.with_position(_pos_left)
         return CompositeVideoClip([bg, img], size=(vid_w, vid_h))
 
     else:              # pan right (content drifts rightward)
         pan_w = int(fit_w * (1 + pan_ex))
-        img   = raw.resize((pan_w, fit_h)).set_duration(duration)
+        img   = raw.resized((pan_w, fit_h)).with_duration(duration)
         travel = pan_w - vid_w
         cy     = (fit_h - vid_h) // 2
         def _pos_right(t, tr=travel, oy=cy, dur=duration):
             return (-tr + int(tr * t / max(dur, 1)), -oy)
-        img = img.set_position(_pos_right)
+        img = img.with_position(_pos_right)
         return CompositeVideoClip([bg, img], size=(vid_w, vid_h))
 
 
@@ -523,11 +539,15 @@ def _get_font_path() -> str:
     """Return path to a TTF font usable by FFmpeg drawtext on Windows."""
     candidates = [
         "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/NirmalaUI.ttf",  # Devanagari/Hindi (Windows 8+)
+        "C:/Windows/Fonts/nirmala.ttf",
         "C:/Windows/Fonts/calibri.ttf",
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/verdana.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",   # Linux fallback
-        "/System/Library/Fonts/Helvetica.ttc",                # macOS fallback
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",      # Linux Noto
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",          # Linux fallback
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",     # macOS
+        "/System/Library/Fonts/Helvetica.ttc",                       # macOS fallback
     ]
     for p in candidates:
         if os.path.exists(p):
@@ -535,19 +555,29 @@ def _get_font_path() -> str:
     return ""
 
 
-def _wrap_subtitle(text: str, max_chars: int = 52) -> str:
-    """Wrap long text into two lines for subtitle display."""
+def _wrap_subtitle(text: str, max_chars: int = 42) -> str:
+    """Wrap text into 1–2 subtitle lines, each capped at max_chars.
+
+    The full narration can be hundreds of words — we keep only a short excerpt
+    so it fits on screen without overlapping or garbling.
+    """
     text = text.strip()
+    # Hard-cap total length at 2 lines × max_chars
+    max_total = max_chars * 2
+    if len(text) > max_total:
+        # Trim at last word boundary within limit
+        cut = text[:max_total].rsplit(" ", 1)[0]
+        text = cut if len(cut) > max_chars // 2 else text[:max_total]
+
     if len(text) <= max_chars:
         return text
-    # Try to break near the middle
-    mid  = len(text) // 2
-    idx  = text.rfind(" ", 0, mid + max_chars // 2)
+
+    # Find best word break near max_chars
+    idx = text.rfind(" ", 0, max_chars)
     if idx < 5:
-        idx = text.find(" ", mid)
-    if idx == -1:
-        return text[:max_chars]
-    return text[:idx] + "\n" + text[idx + 1:]
+        idx = max_chars
+    line2 = text[idx:].strip()[:max_chars]
+    return text[:idx] + "\n" + line2
 
 
 def _burn_subtitle(input_path: str, output_path: str,
@@ -561,15 +591,24 @@ def _burn_subtitle(input_path: str, output_path: str,
         shutil.copy2(input_path, output_path)
         return
 
-    wrapped = _wrap_subtitle(text, max_chars=52)
+    # Take only the first sentence or first ~90 chars — full narration is too long
+    first_sentence_end = min(
+        (text.find(". ") + 1) if text.find(". ") != -1 else len(text),
+        (text.find("? ") + 1) if text.find("? ") != -1 else len(text),
+        (text.find("! ") + 1) if text.find("! ") != -1 else len(text),
+        90,
+    )
+    short_text = text[:first_sentence_end].strip()
+    wrapped = _wrap_subtitle(short_text, max_chars=42)
 
     # Escape special characters for FFmpeg drawtext
     def _esc(s: str) -> str:
         return (s
                 .replace("\\", "\\\\")
-                .replace("'",  "\u2019")   # replace smart apostrophe
+                .replace("'",  "\u2019")   # smart apostrophe avoids quote issues
                 .replace(":",  "\\:")
-                .replace("%",  "\\%"))
+                .replace("%",  "\\%")
+                .replace("\n", "\\n"))     # real newline → FFmpeg line-break escape
 
     escaped    = _esc(wrapped)
     fontsize   = max(18, vid_h // 22)
