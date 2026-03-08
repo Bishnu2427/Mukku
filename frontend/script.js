@@ -27,6 +27,40 @@ const STEP_ORDER   = [
 let _pollTimer   = null;
 let _projectId   = null;
 
+// ── Platform presets ──────────────────────────────────────────────────────────
+
+const PLATFORM_PRESETS = {
+  youtube:          { aspect_ratio: '16:9', duration: '120', tone: 'educational',   image_style: 'cinematic'       },
+  youtube_shorts:   { aspect_ratio: '9:16', duration: '60',  tone: 'entertaining',  image_style: 'photorealistic'  },
+  tiktok:           { aspect_ratio: '9:16', duration: '60',  tone: 'entertaining',  image_style: 'photorealistic'  },
+  instagram_reels:  { aspect_ratio: '9:16', duration: '30',  tone: 'casual',        image_style: 'cinematic'       },
+  instagram_post:   { aspect_ratio: '1:1',  duration: '60',  tone: 'professional',  image_style: 'photorealistic'  },
+  linkedin:         { aspect_ratio: '16:9', duration: '90',  tone: 'professional',  image_style: 'documentary'     },
+  twitter:          { aspect_ratio: '16:9', duration: '60',  tone: 'casual',        image_style: 'photorealistic'  },
+};
+
+function applyPlatformPreset(platform) {
+  const preset = PLATFORM_PRESETS[platform];
+  if (!preset) return;
+
+  // Set aspect ratio
+  setSegValue('ratioSeg',    preset.aspect_ratio);
+  // Set duration
+  setSegValue('durationSeg', preset.duration);
+  // Set tone
+  setSegValue('toneSeg',     preset.tone);
+  // Set image style
+  setSegValue('styleSeg',    preset.image_style);
+}
+
+function setSegValue(segId, value) {
+  const seg = document.getElementById(segId);
+  if (!seg) return;
+  seg.querySelectorAll('.seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.value === value);
+  });
+}
+
 // ── Settings helpers ──────────────────────────────────────────────────────────
 
 function getSegValue(segId) {
@@ -37,11 +71,13 @@ function getSegValue(segId) {
 function collectSettings() {
   return {
     duration:      parseInt(getSegValue('durationSeg') || '60', 10),
-    tone:          getSegValue('toneSeg')   || 'educational',
-    image_style:   getSegValue('styleSeg')  || 'photorealistic',
-    aspect_ratio:  getSegValue('ratioSeg')  || '16:9',
-    voice_gender:  getSegValue('voiceSeg')  || 'auto',
-    include_music: getSegValue('musicSeg')  === 'true',
+    tone:          getSegValue('toneSeg')      || 'educational',
+    image_style:   getSegValue('styleSeg')     || 'photorealistic',
+    aspect_ratio:  getSegValue('ratioSeg')     || '16:9',
+    voice_gender:  getSegValue('voiceSeg')     || 'auto',
+    include_music: getSegValue('musicSeg')     === 'true',
+    platform:      getSegValue('platformSeg')  || '',
+    language:      getSegValue('languageSeg')  || 'en',
   };
 }
 
@@ -59,6 +95,10 @@ document.addEventListener('click', e => {
   if (!parent) return;
   parent.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
   e.target.classList.add('active');
+  // If a platform button was clicked, apply preset
+  if (parent.id === 'platformSeg') {
+    applyPlatformPreset(e.target.dataset.value);
+  }
 });
 
 // ── Entry point ──────────────────────────────────────────────────────────────
@@ -154,9 +194,15 @@ function updateProgress(data) {
     const el = document.querySelector(`.step[data-step="${s}"]`);
     if (!el) return;
     el.classList.remove('active', 'done');
-    if (i < stepIdx)       el.classList.add('done');
+    if (i < stepIdx)        el.classList.add('done');
     else if (i === stepIdx) el.classList.add('active');
   });
+
+  // Show sub-step detail (e.g. "Image 3 of 10…") on the active step
+  const detailEl = document.getElementById('stepDetail');
+  if (detailEl) {
+    detailEl.textContent = data.step_detail || '';
+  }
 
   // Show script when available
   if (data.script) {

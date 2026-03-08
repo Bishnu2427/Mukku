@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mukku — AI Video Generator</title>
+  <link rel="icon" type="image/png" href="/static/mukku_logo.png" />
   <link rel="stylesheet" href="/static/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,8 +15,7 @@
   <header class="header">
     <div class="header-inner">
       <div class="logo">
-        <span class="logo-icon">&#9654;</span>
-        <span class="logo-text">Mukku</span>
+        <img src="/static/mukku_logo.png" alt="Mukku" class="logo-img" />
       </div>
       <span class="header-tagline">Text → Professional Video</span>
     </div>
@@ -57,6 +57,41 @@
         </button>
 
         <div class="settings-body" id="settingsBody">
+
+          <!-- Platform Presets -->
+          <div class="setting-group" style="grid-column:1/-1">
+            <label class="setting-label">Platform</label>
+            <div class="seg-control" id="platformSeg">
+              <button class="seg-btn" data-value="youtube">YouTube</button>
+              <button class="seg-btn" data-value="youtube_shorts">YT Shorts</button>
+              <button class="seg-btn" data-value="tiktok">TikTok</button>
+              <button class="seg-btn" data-value="instagram_reels">Reels</button>
+              <button class="seg-btn" data-value="instagram_post">IG Post</button>
+              <button class="seg-btn" data-value="linkedin">LinkedIn</button>
+              <button class="seg-btn" data-value="twitter">Twitter/X</button>
+            </div>
+            <p class="setting-hint">Select a platform to auto-configure aspect ratio, duration &amp; tone. Override below if needed.</p>
+          </div>
+
+          <!-- Language -->
+          <div class="setting-group" style="grid-column:1/-1">
+            <label class="setting-label">Language</label>
+            <div class="seg-control" id="languageSeg">
+              <button class="seg-btn active" data-value="en">English</button>
+              <button class="seg-btn" data-value="hi">Hindi</button>
+              <button class="seg-btn" data-value="bn">Bengali</button>
+              <button class="seg-btn" data-value="te">Telugu</button>
+              <button class="seg-btn" data-value="mr">Marathi</button>
+              <button class="seg-btn" data-value="ta">Tamil</button>
+              <button class="seg-btn" data-value="gu">Gujarati</button>
+              <button class="seg-btn" data-value="kn">Kannada</button>
+              <button class="seg-btn" data-value="ml">Malayalam</button>
+              <button class="seg-btn" data-value="pa">Punjabi</button>
+              <button class="seg-btn" data-value="or">Odia</button>
+              <button class="seg-btn" data-value="as">Assamese</button>
+            </div>
+            <p class="setting-hint">Script &amp; voiceover will be generated in the selected language via gTTS.</p>
+          </div>
 
           <div class="settings-row">
 
@@ -150,6 +185,7 @@
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
       </div>
+      <p id="stepDetail" style="text-align:center;font-size:0.82rem;color:#a0aec0;margin:6px 0 0;min-height:1.2em;"></p>
 
       <div class="pipeline-steps" id="pipelineSteps">
         <div class="step" data-step="analyzing_prompt">
@@ -265,7 +301,7 @@
   </main>
 
   <footer class="footer">
-    <p>Powered by Groq &middot; Leonardo.ai &middot; Kling.ai &middot; Suno &middot; MoviePy</p>
+    <p>Powered by Groq &middot; Leonardo.ai &middot; Veo 3.1 &middot; Suno &middot; FFmpeg &nbsp;&mdash;&nbsp; YouTube &middot; TikTok &middot; Reels &middot; LinkedIn ready</p>
   </footer>
 
   <script src="/static/script.js"></script>

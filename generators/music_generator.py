@@ -53,7 +53,8 @@ def _build_prompt(topic: str, tone: str, duration: int) -> str:
     style = tone_map.get(tone.lower(), "ambient, calm, professional")
     return (
         f"Instrumental background music for a video about {topic}. "
-        f"Style: {style}. No lyrics. "
+        f"Style: {style}. "
+        "No vocals. No lyrics. Purely instrumental. "
         f"Duration approximately {duration} seconds. "
         "Smooth, non-distracting, suitable for voice-over narration."
     )
@@ -69,9 +70,9 @@ def _headers() -> dict:
 def _submit(prompt: str) -> str:
     """Submit a music generation job and return the task_id."""
     body = {
-        "prompt":           prompt,
-        "make_instrumental": True,
-        "wait_audio":        False,
+        "prompt":     prompt,
+        "wait_audio": False,
+        "customMode": False,
     }
     resp = requests.post(
         f"{SUNO_BASE}/api/v1/generate",
@@ -82,11 +83,12 @@ def _submit(prompt: str) -> str:
     resp.raise_for_status()
     data = resp.json()
 
-    # sunoapi.org returns task_id or data.task_id
+    # sunoapi.org response shapes vary — try all known locations
+    nested  = data.get("data") or {}
     task_id = (
         data.get("task_id")
-        or data.get("data", {}).get("task_id")
-        or (data.get("data", [{}])[0].get("id") if isinstance(data.get("data"), list) else None)
+        or (nested.get("task_id") if isinstance(nested, dict) else None)
+        or (nested[0].get("id") if isinstance(nested, list) and nested and isinstance(nested[0], dict) else None)
     )
     if not task_id:
         raise RuntimeError(f"Suno API did not return task_id: {data}")
@@ -112,6 +114,7 @@ def _poll(task_id: str) -> str:
         items = data if isinstance(data, list) else data.get("data", [])
         if not isinstance(items, list):
             items = [items]
+        items = [i for i in items if isinstance(i, dict)]  # drop None / non-dict entries
 
         for item in items:
             status    = item.get("status", "")

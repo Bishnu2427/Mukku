@@ -16,7 +16,7 @@ requests
 diffusers
 transformers
 accelerate
-Pillow<10.0.0
+Pillow
 
 # ── Voice generation ────────────────────────────────────────────────────────
 # Note: Coqui TTS (TTS package) does NOT support Python 3.12+, so it is excluded.
@@ -27,12 +27,13 @@ pyttsx3
 gTTS
 
 # ── Video assembly ──────────────────────────────────────────────────────────
-moviepy<2.0
+moviepy
 imageio
 imageio-ffmpeg
 
 # ── API integrations ────────────────────────────────────────────────────────
 PyJWT
+google-genai
 
 # ── Utilities ───────────────────────────────────────────────────────────────
 numpy

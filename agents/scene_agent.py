@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_MODEL   = "llama3-70b-8192"
+GROQ_MODEL   = "llama-3.3-70b-versatile"
 
 
 def generate_scenes(script: str, analysis: dict, scene_count_override: int = 0) -> list[dict]:

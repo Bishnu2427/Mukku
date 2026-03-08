@@ -39,6 +39,9 @@ VALID_TONES        = {"educational", "professional", "motivational", "casual", "
 VALID_STYLES       = {"photorealistic", "cinematic", "documentary"}
 VALID_RATIOS       = {"16:9", "9:16", "1:1"}
 VALID_VOICES       = {"auto", "female", "male"}
+VALID_PLATFORMS    = {"youtube", "youtube_shorts", "tiktok", "instagram_reels",
+                      "instagram_post", "linkedin", "twitter", ""}
+VALID_LANGUAGES    = {"en", "hi", "bn", "te", "mr", "ta", "gu", "kn", "ml", "pa", "or", "as"}
 MAX_DURATION_SECS  = 600   # 10 minutes hard cap
 
 
@@ -73,6 +76,8 @@ def generate():
         "voice_gender":  raw_settings.get("voice_gender", "auto")    if raw_settings.get("voice_gender") in VALID_VOICES else "auto",
         "include_music": bool(raw_settings.get("include_music", True)),
         "scene_count":   int(raw_settings.get("scene_count", 0)),     # 0 = auto
+        "platform":      raw_settings.get("platform", "")             if raw_settings.get("platform", "") in VALID_PLATFORMS else "",
+        "language":      raw_settings.get("language", "en")            if raw_settings.get("language", "en") in VALID_LANGUAGES else "en",
     }
 
     project_id = uuid.uuid4().hex[:10]
@@ -86,8 +91,9 @@ def generate():
     )
     thread.start()
 
-    logger.info("Project %s started — duration=%ds  style=%s  tone=%s",
-                project_id, settings["duration"], settings["image_style"], settings["tone"])
+    logger.info("Project %s started — platform=%s  duration=%ds  style=%s  tone=%s  ratio=%s",
+                project_id, settings["platform"] or "custom", settings["duration"],
+                settings["image_style"], settings["tone"], settings["aspect_ratio"])
     return jsonify({"project_id": project_id, "status": "processing"}), 202
 
 
@@ -102,6 +108,7 @@ def status(project_id: str):
         "status":       project.get("status"),
         "current_step": project.get("current_step"),
         "progress":     project.get("progress", 0),
+        "step_detail":  project.get("step_detail", ""),
         "script":       project.get("script"),
         "scenes":       project.get("scenes", []),
         "error":        project.get("error"),

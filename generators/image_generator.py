@@ -29,21 +29,18 @@ _AR_SIZES = {
 # Per-style prompt suffixes and Leonardo presets
 _STYLE_CONFIG = {
     "photorealistic": {
-        "suffix":  "realistic photograph, natural lighting, sharp focus, shot on Canon EOS R5, 4k",
-        "negative": "painting, illustration, cartoon, anime, drawing, CGI, render, blurry, watermark, text, distorted, deformed",
-        "photoReal": True,
+        "suffix":      "realistic photograph, natural lighting, sharp focus, shot on Canon EOS R5, 4k",
+        "negative":    "painting, illustration, cartoon, anime, drawing, CGI, render, blurry, watermark, text, distorted, deformed",
         "presetStyle": "PHOTOGRAPHY",
     },
     "cinematic": {
-        "suffix":  "cinematic film still, anamorphic lens, dramatic lighting, shallow depth of field, 4k",
-        "negative": "blurry, low quality, watermark, text, distorted, deformed, cartoon, anime",
-        "photoReal": False,
+        "suffix":      "cinematic film still, anamorphic lens, dramatic lighting, shallow depth of field, 4k",
+        "negative":    "blurry, low quality, watermark, text, distorted, deformed, cartoon, anime",
         "presetStyle": "CINEMATIC",
     },
     "documentary": {
-        "suffix":  "documentary photography, candid shot, natural daylight, photojournalism style, 4k",
-        "negative": "posed, studio lighting, artificial, cartoon, anime, illustration, watermark, text, blurry",
-        "photoReal": True,
+        "suffix":      "documentary photography, candid shot, natural daylight, photojournalism style, 4k",
+        "negative":    "posed, studio lighting, artificial, cartoon, anime, illustration, watermark, text, blurry",
         "presetStyle": "PHOTOGRAPHY",
     },
 }
@@ -98,7 +95,6 @@ def _leonardo_generate(prompt: str, image_style: str = "photorealistic",
         "num_inference_steps": 25,
         "alchemy":             True,
         "highResolution":      False,
-        "photoReal":           style_cfg.get("photoReal", False),
         "presetStyle":         style_cfg.get("presetStyle", "NONE"),
     }
 
@@ -110,8 +106,8 @@ def _leonardo_generate(prompt: str, image_style: str = "photorealistic",
     gen_id = resp.json()["sdGenerationJob"]["generationId"]
     logger.info("Leonardo.ai generation queued: %s", gen_id)
 
-    # poll until complete (max 5 minutes)
-    for attempt in range(30):
+    # poll until complete (max ~2.5 minutes before falling back)
+    for attempt in range(15):
         time.sleep(10)
         r = requests.get(
             f"{LEONARDO_BASE}/generations/{gen_id}",
@@ -130,9 +126,9 @@ def _leonardo_generate(prompt: str, image_style: str = "photorealistic",
         if status == "FAILED":
             raise RuntimeError("Leonardo generation job failed.")
 
-        logger.debug("Leonardo.ai poll %d — status: %s", attempt + 1, status)
+        logger.info("Leonardo.ai poll %d/15 — status: %s", attempt + 1, status)
 
-    raise TimeoutError("Leonardo.ai timed out after 5 minutes.")
+    raise TimeoutError("Leonardo.ai timed out — falling back to placeholder.")
 
 
 def _get_sd_pipeline():

@@ -7,16 +7,37 @@ logger = logging.getLogger(__name__)
 OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_MODEL   = "llama3-70b-8192"
+GROQ_MODEL   = "llama-3.3-70b-versatile"
+
+_LANG_NAMES = {
+    "en": "English",
+    "hi": "Hindi",
+    "bn": "Bengali",
+    "te": "Telugu",
+    "mr": "Marathi",
+    "ta": "Tamil",
+    "gu": "Gujarati",
+    "kn": "Kannada",
+    "ml": "Malayalam",
+    "pa": "Punjabi",
+    "or": "Odia",
+    "as": "Assamese",
+}
 
 
-def generate_script(prompt: str, analysis: dict) -> str:
+def generate_script(prompt: str, analysis: dict, language: str = "en") -> str:
     duration      = analysis.get("duration", 60)
     topic         = analysis.get("topic", prompt)
     audience      = analysis.get("target_audience", "general audience")
     tone          = analysis.get("tone", "educational")
     key_points    = analysis.get("key_points", [])
     word_estimate = int(duration * 2.5)
+
+    lang_name = _LANG_NAMES.get(language, "English")
+    lang_rule = (
+        f"  - Write the ENTIRE script in {lang_name} language only. Do NOT mix languages.\n"
+        if language != "en" else ""
+    )
 
     system_msg = (
         "You are a professional video scriptwriter. "
@@ -27,6 +48,7 @@ def generate_script(prompt: str, analysis: dict) -> str:
         "  - Keep sentences short and conversational.\n"
         "  - The script must be specific, practical, and useful — not generic filler content.\n"
         "  - Match the requested tone exactly.\n"
+        f"{lang_rule}"
         f"  - Target approximately {word_estimate} words."
     )
 
@@ -37,6 +59,7 @@ def generate_script(prompt: str, analysis: dict) -> str:
         f"Topic:           {topic}\n"
         f"Target Audience: {audience}\n"
         f"Tone:            {tone}\n"
+        f"Language:        {lang_name}\n"
         f"Key Points to Cover:\n{key_points_str}\n\n"
         f"Original Request: {prompt}\n\n"
         "IMPORTANT: Every sentence must be specific to the topic. Avoid generic filler content.\n\n"
