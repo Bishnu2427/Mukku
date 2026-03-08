@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"E:/My_Projects/Mukku/.env\"*)"
+    ]
+  }
+}

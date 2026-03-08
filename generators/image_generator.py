@@ -1,23 +1,30 @@
 """
 Image Generation Engine.
 
-Primary  : Stable Diffusion 2.1 via Hugging Face diffusers.
-Fallback : PIL-based placeholder image (for CPU-only / dev environments).
-
-The pipeline is loaded once and cached in memory.
+Priority
+--------
+  1. Leonardo.ai API  — best quality, cloud, fast
+  2. Stable Diffusion — local fallback (requires GPU for reasonable speed)
+  3. PIL placeholder  — dev/offline fallback (always works)
 """
 
 import os
+import time
 import logging
+import requests
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-ROOT       = Path(__file__).resolve().parent.parent
-IMAGES_DIR = ROOT / "media" / "images"
-SD_MODEL   = os.getenv("SD_MODEL", "stabilityai/stable-diffusion-2-1")
+ROOT             = Path(__file__).resolve().parent.parent
+IMAGES_DIR       = ROOT / "media" / "images"
 
-_sd_pipeline = None   # cached after first load
+LEONARDO_API_KEY = os.getenv("LEONARDO_API", "").strip()
+LEONARDO_BASE    = "https://cloud.leonardo.ai/api/rest/v1"
+# Leonardo Phoenix — photorealistic, cinematic quality
+LEONARDO_MODEL   = os.getenv("LEONARDO_MODEL", "6b645e3a-d64f-4341-a6d8-7a3690fbf042")
+
+_sd_pipeline = None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -25,30 +32,99 @@ _sd_pipeline = None   # cached after first load
 # ──────────────────────────────────────────────────────────────────────────────
 
 def generate_image(visual_prompt: str, project_id: str, scene_number: int) -> str:
-    """
-    Generate an image for a scene and save it to disk.
-
-    Returns
-    -------
-    str  - absolute path of the saved PNG file
-    """
+    """Generate a scene image. Returns the local file path of the saved PNG."""
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{project_id}_scene{scene_number:02d}.png"
     filepath = str(IMAGES_DIR / filename)
 
-    try:
-        image = _generate_with_sd(visual_prompt)
-        image.save(filepath)
-        logger.info("Image saved: %s", filepath)
-    except Exception as exc:
-        logger.warning("Stable Diffusion failed (%s). Using placeholder.", exc)
-        filepath = _generate_placeholder(visual_prompt, filepath, scene_number)
+    # ── 1. Leonardo.ai (primary) ───────────────────────────────────────────
+    if LEONARDO_API_KEY:
+        try:
+            url = _leonardo_generate(visual_prompt)
+            _download_file(url, filepath)
+            logger.info("Leonardo.ai image saved: %s", filepath)
+            return filepath
+        except Exception as exc:
+            logger.warning("Leonardo.ai failed (%s) — trying local SD.", exc)
 
-    return filepath
+    # ── 2. Stable Diffusion (local fallback) ───────────────────────────────
+    try:
+        return _generate_with_sd(visual_prompt, filepath)
+    except Exception as exc:
+        logger.warning("Stable Diffusion failed (%s) — using placeholder.", exc)
+
+    # ── 3. PIL placeholder ─────────────────────────────────────────────────
+    return _generate_placeholder(visual_prompt, filepath, scene_number)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Stable Diffusion (primary)
+# Leonardo.ai
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _leonardo_generate(prompt: str) -> str:
+    """Submit a generation job and return the image URL when complete."""
+    headers = {
+        "Authorization": f"Bearer {LEONARDO_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    enhanced = (
+        f"{prompt}, cinematic photography, ultra sharp, professional lighting, "
+        "8k resolution, high detail, award-winning photograph"
+    )
+    negative = (
+        "blurry, low quality, distorted, deformed, ugly, watermark, "
+        "text overlay, duplicate, bad composition"
+    )
+
+    body = {
+        "prompt":              enhanced,
+        "negative_prompt":     negative,
+        "modelId":             LEONARDO_MODEL,
+        "width":               1024,
+        "height":              576,        # 16:9
+        "num_images":          1,
+        "guidance_scale":      7,
+        "num_inference_steps": 20,
+        "alchemy":             True,
+        "highResolution":      False,
+    }
+
+    resp = requests.post(
+        f"{LEONARDO_BASE}/generations",
+        json=body, headers=headers, timeout=30,
+    )
+    resp.raise_for_status()
+    gen_id = resp.json()["sdGenerationJob"]["generationId"]
+    logger.info("Leonardo.ai generation queued: %s", gen_id)
+
+    # Poll until complete (max 5 minutes)
+    for attempt in range(30):
+        time.sleep(10)
+        r = requests.get(
+            f"{LEONARDO_BASE}/generations/{gen_id}",
+            headers=headers, timeout=15,
+        )
+        r.raise_for_status()
+        data   = r.json().get("generations_by_pk", {})
+        status = data.get("status", "")
+
+        if status == "COMPLETE":
+            images = data.get("generated_images", [])
+            if not images:
+                raise RuntimeError("Leonardo returned COMPLETE but no images.")
+            return images[0]["url"]
+
+        if status == "FAILED":
+            raise RuntimeError("Leonardo generation job failed.")
+
+        logger.debug("Leonardo.ai poll %d — status: %s", attempt + 1, status)
+
+    raise TimeoutError("Leonardo.ai timed out after 5 minutes.")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Stable Diffusion (local)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _get_sd_pipeline():
@@ -59,15 +135,14 @@ def _get_sd_pipeline():
     import torch
     from diffusers import StableDiffusionPipeline
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype  = torch.float16 if device == "cuda" else torch.float32
+    sd_model = os.getenv("SD_MODEL", "stabilityai/stable-diffusion-2-1")
+    device   = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype    = torch.float16 if device == "cuda" else torch.float32
 
-    logger.info("Loading Stable Diffusion model '%s' on %s …", SD_MODEL, device)
+    logger.info("Loading Stable Diffusion '%s' on %s …", sd_model, device)
     pipe = StableDiffusionPipeline.from_pretrained(
-        SD_MODEL,
-        torch_dtype=dtype,
-        safety_checker=None,
-        requires_safety_checker=False,
+        sd_model, torch_dtype=dtype,
+        safety_checker=None, requires_safety_checker=False,
     ).to(device)
 
     if device == "cuda":
@@ -77,88 +152,75 @@ def _get_sd_pipeline():
     return _sd_pipeline
 
 
-def _generate_with_sd(visual_prompt: str):
+def _generate_with_sd(prompt: str, filepath: str) -> str:
     import torch
 
-    enhanced_prompt = (
-        f"{visual_prompt}, high quality, professional photography, "
-        "sharp focus, 4k resolution, cinematic lighting"
-    )
-    negative_prompt = (
-        "blurry, low quality, distorted, deformed, ugly, bad anatomy, "
-        "watermark, text, duplicate, extra limbs"
-    )
+    pipe     = _get_sd_pipeline()
+    enhanced = f"{prompt}, high quality, professional photography, sharp, 4k"
+    negative = "blurry, low quality, distorted, watermark, text"
 
-    pipe = _get_sd_pipeline()
     with torch.no_grad():
-        result = pipe(
-            enhanced_prompt,
-            negative_prompt=negative_prompt,
-            num_inference_steps=30,
-            guidance_scale=7.5,
-            width=768,
-            height=432,   # 16:9
-        )
-    return result.images[0]
+        image = pipe(
+            enhanced, negative_prompt=negative,
+            num_inference_steps=30, guidance_scale=7.5,
+            width=768, height=432,
+        ).images[0]
+
+    image.save(filepath)
+    logger.info("Stable Diffusion image saved: %s", filepath)
+    return filepath
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# PIL placeholder (fallback)
+# PIL placeholder (always available)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _generate_placeholder(prompt: str, filepath: str, scene_number: int) -> str:
     from PIL import Image, ImageDraw, ImageFont
 
-    WIDTH, HEIGHT = 1280, 720
-    COLORS = [
-        (30, 60, 90), (20, 80, 60), (80, 40, 80),
-        (90, 50, 20), (20, 70, 90), (70, 20, 50),
+    W, H = 1024, 576
+    PALETTE = [
+        (28, 58, 90), (18, 78, 58), (78, 38, 80),
+        (88, 48, 18), (18, 68, 88), (68, 18, 48),
     ]
-    bg_color = COLORS[(scene_number - 1) % len(COLORS)]
-
-    img  = Image.new("RGB", (WIDTH, HEIGHT), bg_color)
+    bg   = PALETTE[(scene_number - 1) % len(PALETTE)]
+    img  = Image.new("RGB", (W, H), bg)
     draw = ImageDraw.Draw(img)
 
-    # Gradient-like overlay
-    for y in range(HEIGHT):
-        alpha = int(30 * y / HEIGHT)
-        draw.line([(0, y), (WIDTH, y)], fill=(alpha, alpha, alpha))
+    for y in range(H):
+        v = int(25 * y / H)
+        draw.line([(0, y), (W, y)], fill=(v, v, v + 10))
 
-    # Scene label
-    label = f"Scene {scene_number}"
     try:
-        font_large = ImageFont.truetype("arial.ttf", 60)
-        font_small = ImageFont.truetype("arial.ttf", 28)
+        f_big = ImageFont.truetype("arial.ttf", 56)
+        f_sm  = ImageFont.truetype("arial.ttf", 26)
     except OSError:
-        font_large = ImageFont.load_default()
-        font_small = font_large
+        f_big = f_sm = ImageFont.load_default()
 
-    # Center the scene number
-    draw.text((WIDTH // 2, HEIGHT // 2 - 60), label, fill=(255, 255, 255), font=font_large, anchor="mm")
+    draw.text((W // 2, H // 2 - 55), f"Scene {scene_number}",
+              fill=(255, 255, 255), font=f_big, anchor="mm")
 
-    # Wrap and draw prompt text
-    words  = prompt.split()
-    lines  = []
-    line   = ""
+    words, lines, line = prompt.split(), [], ""
     for w in words:
-        if len(line) + len(w) + 1 > 70:
-            lines.append(line)
-            line = w
+        if len(line) + len(w) + 1 > 65:
+            lines.append(line); line = w
         else:
             line = (line + " " + w).strip()
     if line:
         lines.append(line)
 
-    y_start = HEIGHT // 2 + 20
-    for i, text_line in enumerate(lines[:4]):
-        draw.text(
-            (WIDTH // 2, y_start + i * 36),
-            text_line,
-            fill=(200, 220, 255),
-            font=font_small,
-            anchor="mm",
-        )
+    for i, ln in enumerate(lines[:4]):
+        draw.text((W // 2, H // 2 + 18 + i * 34), ln,
+                  fill=(190, 215, 255), font=f_sm, anchor="mm")
 
     img.save(filepath)
     logger.info("Placeholder image saved: %s", filepath)
     return filepath
+
+
+def _download_file(url: str, filepath: str) -> None:
+    r = requests.get(url, timeout=120, stream=True)
+    r.raise_for_status()
+    with open(filepath, "wb") as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            f.write(chunk)

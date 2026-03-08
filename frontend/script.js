@@ -17,7 +17,9 @@ const STEP_ORDER   = [
   'generating_script',
   'planning_scenes',
   'generating_images',
+  'generating_clips',
   'generating_voices',
+  'generating_music',
   'assembling_video',
   'completed',
 ];

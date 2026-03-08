@@ -2,9 +2,10 @@
 Voice Generation Engine.
 
 Priority order (first one that works is used):
-  1. Coqui TTS  – high-quality, fully offline
-  2. pyttsx3    – built-in OS TTS, offline, Windows/Linux/macOS
-  3. gTTS       – Google TTS, requires internet, always works as last resort
+  1. pyttsx3  – built-in OS TTS, offline, Windows/Linux/macOS (default)
+  2. gTTS     – Google TTS, requires internet, last resort
+
+Note: Coqui TTS is incompatible with Python 3.12+ and is excluded.
 """
 
 import os
@@ -17,10 +18,7 @@ logger = logging.getLogger(__name__)
 ROOT      = Path(__file__).resolve().parent.parent
 AUDIO_DIR = ROOT / "media" / "audio"
 
-TTS_ENGINE = os.getenv("TTS_ENGINE", "auto")   # auto | coqui | pyttsx3 | gtts
-TTS_MODEL  = os.getenv("TTS_MODEL",  "tts_models/en/ljspeech/tacotron2-DDC")
-
-_coqui_tts = None   # cached Coqui TTS instance
+TTS_ENGINE = os.getenv("TTS_ENGINE", "pyttsx3")  # pyttsx3 | gtts | auto
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -45,10 +43,6 @@ def generate_voice(text: str, project_id: str, scene_number: int) -> str:
 
     engine = TTS_ENGINE.lower()
 
-    if engine in ("auto", "coqui"):
-        if _try_coqui(text, filepath):
-            return filepath
-
     if engine in ("auto", "pyttsx3"):
         if _try_pyttsx3(text, filepath):
             return filepath
@@ -63,23 +57,6 @@ def generate_voice(text: str, project_id: str, scene_number: int) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 # Engine implementations
 # ──────────────────────────────────────────────────────────────────────────────
-
-def _try_coqui(text: str, filepath: str) -> bool:
-    global _coqui_tts
-    try:
-        from TTS.api import TTS as CoquiTTS
-
-        if _coqui_tts is None:
-            logger.info("Loading Coqui TTS model '%s' …", TTS_MODEL)
-            _coqui_tts = CoquiTTS(model_name=TTS_MODEL, progress_bar=False)
-
-        _coqui_tts.tts_to_file(text=text, file_path=filepath)
-        logger.info("Coqui TTS generated: %s", filepath)
-        return True
-    except Exception as exc:
-        logger.warning("Coqui TTS failed: %s", exc)
-        return False
-
 
 def _try_pyttsx3(text: str, filepath: str) -> bool:
     try:
