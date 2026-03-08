@@ -1,14 +1,4 @@
-"""
-Video Generation Engine.
-
-Stage A — Scene clip generation (image → short video clip):
-  1. Kling.ai API   — best AI motion quality
-  2. Pollo.ai API   — fallback video generation
-  3. MoviePy static — Ken Burns zoom (always works, no API needed)
-
-Stage B — Final assembly (clips + voiceover + music → MP4):
-  MoviePy + FFmpeg merges everything into the final video.
-"""
+"""Video generation — image-to-clip via Kling.ai or Pollo.ai, assembled with MoviePy."""
 
 import os
 import time
@@ -36,10 +26,6 @@ FPS              = 24
 FADE_DUR         = 0.4
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────────────────────────────────────
-
 def generate_scene_clip(
     image_path: str,
     visual_prompt: str,
@@ -47,14 +33,11 @@ def generate_scene_clip(
     scene_number: int,
     duration: int = 5,
 ) -> str:
-    """
-    Generate a short AI video clip from a scene image.
-    Returns path to the saved MP4 clip.
-    """
+    """Generate a short video clip from a scene image. Returns the MP4 path."""
     CLIPS_DIR.mkdir(parents=True, exist_ok=True)
     clip_path = str(CLIPS_DIR / f"{project_id}_scene{scene_number:02d}.mp4")
 
-    # ── 1. Kling.ai ────────────────────────────────────────────────────────
+    # try Kling.ai first
     if KLING_ACCESS_KEY and KLING_SECRET_KEY:
         try:
             url = _kling_image_to_video(image_path, visual_prompt, duration)
@@ -64,7 +47,6 @@ def generate_scene_clip(
         except Exception as exc:
             logger.warning("Kling.ai failed (%s) — trying Pollo.ai.", exc)
 
-    # ── 2. Pollo.ai ────────────────────────────────────────────────────────
     if POLLO_API_KEY:
         try:
             url = _pollo_image_to_video(image_path, visual_prompt, duration)
@@ -74,7 +56,6 @@ def generate_scene_clip(
         except Exception as exc:
             logger.warning("Pollo.ai failed (%s) — using MoviePy static.", exc)
 
-    # ── 3. MoviePy Ken Burns (no API needed) ───────────────────────────────
     logger.info("Using MoviePy static clip for scene %d.", scene_number)
     return _moviepy_static_clip(image_path, clip_path, duration)
 
@@ -86,10 +67,7 @@ def assemble_video(
     project_id: str,
     music_path: str = None,
 ) -> str:
-    """
-    Merge scene clips + voiceover audio + optional music into final MP4.
-    Returns path to the final video.
-    """
+    """Merge scene clips, voiceover audio, and optional music into the final MP4."""
     from moviepy.editor import (
         VideoFileClip, AudioFileClip, concatenate_videoclips,
     )
@@ -111,7 +89,7 @@ def assemble_video(
 
             if clip_path and clip_path.endswith(".mp4") and os.path.exists(clip_path):
                 raw = VideoFileClip(clip_path).without_audio()
-                # Loop clip to match audio duration if shorter
+                # loop clip to match audio duration if shorter
                 if raw.duration < duration:
                     loops = int(duration / raw.duration) + 1
                     from moviepy.editor import concatenate_videoclips as _cv
@@ -133,7 +111,7 @@ def assemble_video(
 
     final = concatenate_videoclips(final_clips, method="compose", padding=-FADE_DUR)
 
-    # Mix background music at low volume
+    # mix background music at low volume
     if music_path and os.path.exists(music_path):
         final = _mix_music(final, music_path)
 
@@ -147,10 +125,6 @@ def assemble_video(
     logger.info("Final video saved: %s", output)
     return output
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Kling.ai
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _kling_jwt() -> str:
     import jwt as pyjwt
@@ -191,6 +165,7 @@ def _kling_image_to_video(image_path: str, prompt: str, duration: int) -> str:
 
     for attempt in range(60):  # poll up to 10 minutes
         time.sleep(10)
+        # refresh token each poll to avoid expiry
         headers["Authorization"] = f"Bearer {_kling_jwt()}"
         r = requests.get(
             f"{KLING_BASE}/videos/image2video/{task_id}",
@@ -212,10 +187,6 @@ def _kling_image_to_video(image_path: str, prompt: str, duration: int) -> str:
 
     raise TimeoutError("Kling.ai timed out after 10 minutes.")
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Pollo.ai
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _pollo_image_to_video(image_path: str, prompt: str, duration: int) -> str:
     headers = {"x-api-key": POLLO_API_KEY, "Content-Type": "application/json"}
@@ -269,12 +240,7 @@ def _pollo_image_to_video(image_path: str, prompt: str, duration: int) -> str:
     raise TimeoutError("Pollo.ai timed out after 10 minutes.")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# MoviePy helpers
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _moviepy_static_clip(image_path: str, clip_path: str, duration: int) -> str:
-    """Write a Ken Burns MP4 clip to disk and return the path."""
     comp = _ken_burns_clip(image_path, duration)
     comp.write_videofile(
         clip_path, fps=FPS, codec="libx264",
@@ -286,7 +252,7 @@ def _moviepy_static_clip(image_path: str, clip_path: str, duration: int) -> str:
 
 
 def _ken_burns_clip(image_path: str, duration: float):
-    """Return a Ken Burns animated ImageClip (no audio)."""
+    """Return a slow-zoom ImageClip — gives static images some motion."""
     from moviepy.editor import ImageClip, CompositeVideoClip, ColorClip
 
     img = ImageClip(image_path).resize(height=VIDEO_H)

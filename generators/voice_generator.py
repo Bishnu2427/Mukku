@@ -1,11 +1,6 @@
-"""
-Voice Generation Engine.
+"""Text-to-speech generation. Tries pyttsx3 first, falls back to gTTS.
 
-Priority order (first one that works is used):
-  1. pyttsx3  – built-in OS TTS, offline, Windows/Linux/macOS (default)
-  2. gTTS     – Google TTS, requires internet, last resort
-
-Note: Coqui TTS is incompatible with Python 3.12+ and is excluded.
+Note: Coqui TTS is excluded — incompatible with Python 3.12+.
 """
 
 import os
@@ -21,18 +16,8 @@ AUDIO_DIR = ROOT / "media" / "audio"
 TTS_ENGINE = os.getenv("TTS_ENGINE", "pyttsx3")  # pyttsx3 | gtts | auto
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────────────────────────────────────
-
 def generate_voice(text: str, project_id: str, scene_number: int) -> str:
-    """
-    Convert text to a WAV audio file.
-
-    Returns
-    -------
-    str  - absolute path to the saved WAV file
-    """
+    """Convert text to a WAV file and return its path."""
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{project_id}_scene{scene_number:02d}.wav"
     filepath = str(AUDIO_DIR / filename)
@@ -54,10 +39,6 @@ def generate_voice(text: str, project_id: str, scene_number: int) -> str:
     raise RuntimeError("All TTS engines failed. Check logs for details.")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Engine implementations
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _try_pyttsx3(text: str, filepath: str) -> bool:
     try:
         import pyttsx3
@@ -66,7 +47,7 @@ def _try_pyttsx3(text: str, filepath: str) -> bool:
         engine.setProperty("rate", 160)   # words per minute
         engine.setProperty("volume", 1.0)
 
-        # Prefer a female voice when available
+        # prefer a female voice when available
         voices = engine.getProperty("voices")
         for v in voices:
             if "female" in v.name.lower() or "zira" in v.id.lower():
@@ -92,7 +73,7 @@ def _try_gtts(text: str, filepath: str) -> bool:
         tts = gTTS(text=text, lang="en", slow=False)
         tts.save(mp3_path)
 
-        # Convert MP3 → WAV with ffmpeg
+        # convert MP3 to WAV with ffmpeg
         result = subprocess.run(
             ["ffmpeg", "-y", "-i", mp3_path, filepath],
             capture_output=True,
@@ -102,7 +83,7 @@ def _try_gtts(text: str, filepath: str) -> bool:
             logger.info("gTTS generated: %s", filepath)
             return True
         else:
-            # Keep the MP3 and rename as WAV (player still works)
+            # ffmpeg not available — rename the mp3, most players handle it fine
             os.rename(mp3_path, filepath)
             logger.info("gTTS generated (mp3 renamed): %s", filepath)
             return True

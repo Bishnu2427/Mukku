@@ -1,9 +1,4 @@
-"""
-Script Generation Agent.
-
-Uses a local Ollama LLM to convert a structured prompt analysis
-into a professional video narration script.
-"""
+"""Generates video narration scripts from structured prompt analysis via Ollama."""
 
 import os
 import logging
@@ -16,18 +11,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 
 def generate_script(prompt: str, analysis: dict) -> str:
-    """
-    Generate a professional narration script.
-
-    Parameters
-    ----------
-    prompt   : original user prompt
-    analysis : structured dict from prompt_agent
-
-    Returns
-    -------
-    str  - plain narration text (no stage directions)
-    """
+    """Generate a narration script and return it as plain text."""
     duration      = analysis.get("duration", 60)
     topic         = analysis.get("topic", prompt)
     audience      = analysis.get("target_audience", "general audience")
@@ -66,8 +50,6 @@ def generate_script(prompt: str, analysis: dict) -> str:
         logger.warning("Script agent failed (%s). Using fallback script.", exc)
         return _fallback_script(topic, key_points)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _call_ollama(system_msg: str, user_msg: str) -> str:
     payload = {

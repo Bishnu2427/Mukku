@@ -1,9 +1,4 @@
-"""
-Prompt Understanding Agent.
-
-Analyzes the raw user prompt and extracts structured parameters
-(topic, audience, duration, tone, key points) via a local Ollama LLM.
-"""
+"""Analyzes raw user prompts and extracts structured video parameters via Ollama."""
 
 import os
 import json
@@ -17,13 +12,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 
 def understand_prompt(prompt: str) -> dict:
-    """
-    Analyze the user prompt and return a structured analysis dict.
-
-    Returns
-    -------
-    dict with keys: topic, target_audience, duration (int), tone, key_points (list)
-    """
+    """Run the prompt through Ollama and return a structured analysis dict."""
     system_msg = (
         "You are a professional video content strategist. "
         "Analyze the user's video request and extract the following fields as JSON:\n"
@@ -41,17 +30,12 @@ def understand_prompt(prompt: str) -> dict:
         raw = _call_ollama(system_msg, user_msg)
         logger.debug("Prompt agent raw response: %s", raw)
         result = _extract_json(raw)
-        # Ensure duration is an int
         result["duration"] = int(result.get("duration", 60))
         return result
     except Exception as exc:
         logger.warning("Prompt agent failed (%s). Using defaults.", exc)
         return _fallback(prompt)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Internal helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _call_ollama(system_msg: str, user_msg: str) -> str:
     payload = {

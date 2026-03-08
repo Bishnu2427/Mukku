@@ -1,12 +1,4 @@
-"""
-Image Generation Engine.
-
-Priority
---------
-  1. Leonardo.ai API  — best quality, cloud, fast
-  2. Stable Diffusion — local fallback (requires GPU for reasonable speed)
-  3. PIL placeholder  — dev/offline fallback (always works)
-"""
+"""Image generation — tries Leonardo.ai, falls back to local SD, then a PIL placeholder."""
 
 import os
 import time
@@ -27,17 +19,13 @@ LEONARDO_MODEL   = os.getenv("LEONARDO_MODEL", "6b645e3a-d64f-4341-a6d8-7a3690fb
 _sd_pipeline = None
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────────────────────────────────────
-
 def generate_image(visual_prompt: str, project_id: str, scene_number: int) -> str:
-    """Generate a scene image. Returns the local file path of the saved PNG."""
+    """Generate a scene image and return the local file path of the saved PNG."""
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{project_id}_scene{scene_number:02d}.png"
     filepath = str(IMAGES_DIR / filename)
 
-    # ── 1. Leonardo.ai (primary) ───────────────────────────────────────────
+    # try Leonardo.ai first
     if LEONARDO_API_KEY:
         try:
             url = _leonardo_generate(visual_prompt)
@@ -47,22 +35,17 @@ def generate_image(visual_prompt: str, project_id: str, scene_number: int) -> st
         except Exception as exc:
             logger.warning("Leonardo.ai failed (%s) — trying local SD.", exc)
 
-    # ── 2. Stable Diffusion (local fallback) ───────────────────────────────
+    # fall back to local Stable Diffusion
     try:
         return _generate_with_sd(visual_prompt, filepath)
     except Exception as exc:
         logger.warning("Stable Diffusion failed (%s) — using placeholder.", exc)
 
-    # ── 3. PIL placeholder ─────────────────────────────────────────────────
     return _generate_placeholder(visual_prompt, filepath, scene_number)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Leonardo.ai
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _leonardo_generate(prompt: str) -> str:
-    """Submit a generation job and return the image URL when complete."""
+    """Submit a generation job to Leonardo.ai and return the image URL when ready."""
     headers = {
         "Authorization": f"Bearer {LEONARDO_API_KEY}",
         "Content-Type": "application/json",
@@ -98,7 +81,7 @@ def _leonardo_generate(prompt: str) -> str:
     gen_id = resp.json()["sdGenerationJob"]["generationId"]
     logger.info("Leonardo.ai generation queued: %s", gen_id)
 
-    # Poll until complete (max 5 minutes)
+    # poll until complete (max 5 minutes)
     for attempt in range(30):
         time.sleep(10)
         r = requests.get(
@@ -122,10 +105,6 @@ def _leonardo_generate(prompt: str) -> str:
 
     raise TimeoutError("Leonardo.ai timed out after 5 minutes.")
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Stable Diffusion (local)
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _get_sd_pipeline():
     global _sd_pipeline
@@ -170,10 +149,6 @@ def _generate_with_sd(prompt: str, filepath: str) -> str:
     logger.info("Stable Diffusion image saved: %s", filepath)
     return filepath
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# PIL placeholder (always available)
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _generate_placeholder(prompt: str, filepath: str, scene_number: int) -> str:
     from PIL import Image, ImageDraw, ImageFont

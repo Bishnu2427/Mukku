@@ -1,9 +1,4 @@
-"""
-Music Generation Engine — Suno API (sunoapi.org).
-
-Generates a custom instrumental background track that matches
-the video's topic and mood. The track is downloaded as an MP3
-and saved to media/audio/.
+"""Background music generation via the Suno API (sunoapi.org).
 
 If Suno is unavailable the pipeline continues without music —
 the video will still have voiceover audio.
@@ -24,25 +19,8 @@ SUNO_API_KEY = os.getenv("SUNO_API_KEY", "").strip()
 SUNO_BASE    = "https://apibox.erweima.ai"   # sunoapi.org backend
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────────────────────────────────────
-
 def generate_music(topic: str, tone: str, duration: int, project_id: str) -> str | None:
-    """
-    Generate an instrumental background track for the video.
-
-    Parameters
-    ----------
-    topic      : video topic (used to craft the music prompt)
-    tone       : video tone — e.g. educational, motivational, calm
-    duration   : target video duration in seconds
-    project_id : used for the output filename
-
-    Returns
-    -------
-    str  - path to saved MP3 file, or None if generation failed
-    """
+    """Generate an instrumental background track. Returns the MP3 path, or None on failure."""
     if not SUNO_API_KEY:
         logger.info("SUNO_API_KEY not set — skipping music generation.")
         return None
@@ -64,12 +42,7 @@ def generate_music(topic: str, tone: str, duration: int, project_id: str) -> str
         return None
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Internal helpers
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _build_prompt(topic: str, tone: str, duration: int) -> str:
-    """Craft a music prompt from the video metadata."""
     tone_map = {
         "educational":   "calm, focused, piano and soft strings",
         "professional":  "corporate, uplifting, subtle percussion",
@@ -94,7 +67,7 @@ def _headers() -> dict:
 
 
 def _submit(prompt: str) -> str:
-    """Submit music generation job. Returns task_id."""
+    """Submit a music generation job and return the task_id."""
     body = {
         "prompt":           prompt,
         "make_instrumental": True,
@@ -123,7 +96,7 @@ def _submit(prompt: str) -> str:
 
 
 def _poll(task_id: str) -> str:
-    """Poll until the audio is ready. Returns the audio URL."""
+    """Poll until audio is ready and return the download URL."""
     for attempt in range(40):   # max ~6 minutes
         time.sleep(10)
         resp = requests.get(
@@ -135,7 +108,7 @@ def _poll(task_id: str) -> str:
         resp.raise_for_status()
         data = resp.json()
 
-        # Response can be a list or wrapped in data key
+        # response can be a list or wrapped in a data key
         items = data if isinstance(data, list) else data.get("data", [])
         if not isinstance(items, list):
             items = [items]

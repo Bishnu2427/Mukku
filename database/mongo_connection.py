@@ -1,6 +1,4 @@
-"""
-MongoDB connection and CRUD operations for AI Content Agent.
-"""
+"""MongoDB connection and CRUD helpers for the AI Content Agent."""
 
 import os
 from datetime import datetime
@@ -45,14 +43,12 @@ def create_project(project_id: str, prompt: str) -> dict:
 
 
 def get_project(project_id: str) -> dict | None:
-    """Fetch a project by ID, excluding MongoDB internal _id."""
     return _get_db()["projects"].find_one(
         {"project_id": project_id}, {"_id": 0}
     )
 
 
 def update_project(project_id: str, updates: dict) -> None:
-    """Partially update a project document."""
     updates["updated_at"] = datetime.utcnow()
     _get_db()["projects"].update_one(
         {"project_id": project_id},
@@ -61,7 +57,7 @@ def update_project(project_id: str, updates: dict) -> None:
 
 
 def list_projects(limit: int = 20) -> list:
-    """Return the most recent projects (for dashboard use)."""
+    """Return the most recent projects, newest first."""
     cursor = (
         _get_db()["projects"]
         .find({}, {"_id": 0})

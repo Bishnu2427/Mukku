@@ -1,9 +1,4 @@
-"""
-Scene Planner Agent.
-
-Uses a local Ollama LLM to break a narration script into structured
-scenes, each with a visual prompt, narration text, and duration.
-"""
+"""Breaks a narration script into structured scenes using Ollama."""
 
 import os
 import json
@@ -18,17 +13,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 
 def generate_scenes(script: str, analysis: dict) -> list[dict]:
-    """
-    Break a script into structured scenes.
-
-    Returns
-    -------
-    list of dicts, each with:
-        scene_number  (int)
-        narration     (str)  - text to be spoken
-        visual_prompt (str)  - Stable Diffusion prompt for the image
-        duration      (int)  - seconds
-    """
+    """Split a script into scenes, each with narration, a visual prompt, and duration."""
     total_duration = analysis.get("duration", 60)
     num_scenes     = _estimate_scene_count(total_duration)
 
@@ -62,8 +47,6 @@ def generate_scenes(script: str, analysis: dict) -> list[dict]:
         return _fallback_scenes(script, num_scenes, total_duration)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _estimate_scene_count(duration: int) -> int:
     """Roughly 1 scene per 10 seconds, clamped to [3, 10]."""
     return max(3, min(10, math.ceil(duration / 10)))
@@ -96,7 +79,6 @@ def _extract_json_array(text: str) -> list:
 
 
 def _validate_and_fix(scenes: list, num_scenes: int, total_duration: int) -> list:
-    """Ensure every scene has all required fields and sensible values."""
     per_scene = max(5, total_duration // max(len(scenes), 1))
     fixed = []
     for i, scene in enumerate(scenes):
@@ -110,7 +92,7 @@ def _validate_and_fix(scenes: list, num_scenes: int, total_duration: int) -> lis
 
 
 def _fallback_scenes(script: str, num_scenes: int, total_duration: int) -> list:
-    """Split script by sentences into equal chunks."""
+    """Split script by sentences into equal chunks when the LLM fails."""
     sentences = [s.strip() for s in script.replace("\n", " ").split(".") if s.strip()]
     chunk_size = max(1, math.ceil(len(sentences) / num_scenes))
     per_scene  = max(5, total_duration // num_scenes)

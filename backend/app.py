@@ -1,16 +1,4 @@
-"""
-Flask Backend — AI Content Agent API
-
-Endpoints
----------
-  POST /generate              Start the pipeline (async)
-  GET  /status/<project_id>   Poll generation progress
-  GET  /video/<project_id>    Stream/download the final MP4
-  GET  /projects              List recent projects (dashboard)
-  GET  /health                Health check
-
-Serves the frontend at /
-"""
+"""Flask API for the AI Content Agent."""
 
 import os
 import sys
@@ -19,7 +7,6 @@ import logging
 import threading
 from pathlib import Path
 
-# ── Ensure project root is importable ─────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
@@ -32,7 +19,6 @@ load_dotenv(ROOT / ".env")
 from database.mongo_connection  import create_project, get_project, list_projects
 from services.pipeline_manager  import run_pipeline
 
-# ── App setup ─────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
@@ -50,14 +36,10 @@ app = Flask(
 CORS(app)
 
 
-# ── Frontend ──────────────────────────────────────────────────────────────────
-
 @app.route("/")
 def index():
     return send_file(FRONTEND_DIR / "index.html")
 
-
-# ── API ───────────────────────────────────────────────────────────────────────
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -89,7 +71,6 @@ def generate():
 
 @app.route("/status/<project_id>", methods=["GET"])
 def status(project_id: str):
-    """Return the current pipeline status and progress for a project."""
     project = get_project(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
@@ -108,7 +89,6 @@ def status(project_id: str):
 
 @app.route("/video/<project_id>", methods=["GET"])
 def get_video(project_id: str):
-    """Stream the final MP4 for a completed project."""
     project = get_project(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
@@ -132,10 +112,9 @@ def get_video(project_id: str):
 
 @app.route("/projects", methods=["GET"])
 def projects():
-    """Return recent projects for dashboard display."""
     limit = min(int(request.args.get("limit", 10)), 50)
     items = list_projects(limit)
-    # Serialize datetime objects
+    # serialize datetime objects before sending
     for item in items:
         for k in ("created_at", "updated_at"):
             if item.get(k):
@@ -147,8 +126,6 @@ def projects():
 def health():
     return jsonify({"status": "ok", "version": "1.0.0"})
 
-
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     port  = int(os.getenv("FLASK_PORT", 5000))
