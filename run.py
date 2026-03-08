@@ -21,7 +21,7 @@ load_dotenv(ROOT / ".env")
 from backend.app import app
 
 if __name__ == "__main__":
-    port  = int(os.getenv("FLASK_PORT", 5000))
+    port  = int(os.getenv("FLASK_PORT", 7000))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 
     print(f"""

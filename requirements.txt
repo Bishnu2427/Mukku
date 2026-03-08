@@ -27,7 +27,7 @@ pyttsx3
 gTTS
 
 # ── Video assembly ──────────────────────────────────────────────────────────
-moviepy
+moviepy<2.0
 imageio
 imageio-ffmpeg
 
