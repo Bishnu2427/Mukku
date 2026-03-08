@@ -16,7 +16,8 @@ AUDIO_DIR = ROOT / "media" / "audio"
 TTS_ENGINE = os.getenv("TTS_ENGINE", "pyttsx3")  # pyttsx3 | gtts | auto
 
 
-def generate_voice(text: str, project_id: str, scene_number: int) -> str:
+def generate_voice(text: str, project_id: str, scene_number: int,
+                   voice_gender: str = "auto") -> str:
     """Convert text to a WAV file and return its path."""
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{project_id}_scene{scene_number:02d}.wav"
@@ -29,7 +30,7 @@ def generate_voice(text: str, project_id: str, scene_number: int) -> str:
     engine = TTS_ENGINE.lower()
 
     if engine in ("auto", "pyttsx3"):
-        if _try_pyttsx3(text, filepath):
+        if _try_pyttsx3(text, filepath, voice_gender):
             return filepath
 
     if engine in ("auto", "gtts"):
@@ -39,18 +40,24 @@ def generate_voice(text: str, project_id: str, scene_number: int) -> str:
     raise RuntimeError("All TTS engines failed. Check logs for details.")
 
 
-def _try_pyttsx3(text: str, filepath: str) -> bool:
+def _try_pyttsx3(text: str, filepath: str, voice_gender: str = "auto") -> bool:
     try:
         import pyttsx3
 
         engine = pyttsx3.init()
-        engine.setProperty("rate", 160)   # words per minute
+        engine.setProperty("rate", 160)
         engine.setProperty("volume", 1.0)
 
-        # prefer a female voice when available
         voices = engine.getProperty("voices")
+        want_female = voice_gender in ("female", "auto")
+
         for v in voices:
-            if "female" in v.name.lower() or "zira" in v.id.lower():
+            name = v.name.lower()
+            vid  = v.id.lower()
+            if want_female and ("female" in name or "zira" in vid or "hazel" in vid):
+                engine.setProperty("voice", v.id)
+                break
+            if voice_gender == "male" and ("male" in name or "david" in vid or "mark" in vid):
                 engine.setProperty("voice", v.id)
                 break
 

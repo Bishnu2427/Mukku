@@ -21,9 +21,14 @@ KLING_BASE       = "https://api.klingai.com/v1"
 POLLO_API_KEY    = os.getenv("POLLO_API", "").strip()
 POLLO_BASE       = "https://api.pollo.ai/v1"
 
-VIDEO_W, VIDEO_H = 1280, 720
-FPS              = 24
-FADE_DUR         = 0.4
+FPS      = 24
+FADE_DUR = 0.4
+
+_AR_DIMS = {
+    "16:9": (1280, 720),
+    "9:16": (720, 1280),
+    "1:1":  (1080, 1080),
+}
 
 
 def generate_scene_clip(
@@ -57,7 +62,7 @@ def generate_scene_clip(
             logger.warning("Pollo.ai failed (%s) — using MoviePy static.", exc)
 
     logger.info("Using MoviePy static clip for scene %d.", scene_number)
-    return _moviepy_static_clip(image_path, clip_path, duration)
+    return _moviepy_static_clip(image_path, clip_path, duration, 1280, 720)
 
 
 def assemble_video(
@@ -66,6 +71,7 @@ def assemble_video(
     audio_paths: list,
     project_id: str,
     music_path: str = None,
+    aspect_ratio: str = "16:9",
 ) -> str:
     """Merge scene clips, voiceover audio, and optional music into the final MP4."""
     from moviepy.editor import (
@@ -73,10 +79,11 @@ def assemble_video(
     )
     from moviepy.video.fx.all import fadein, fadeout
 
+    vid_w, vid_h = _AR_DIMS.get(aspect_ratio, (1280, 720))
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     final_clips = []
 
-    for i, (scene, clip_path, audio_path) in enumerate(
+    for i, (_, clip_path, audio_path) in enumerate(
         zip(scenes, clip_paths, audio_paths)
     ):
         if not os.path.exists(audio_path):
@@ -89,14 +96,12 @@ def assemble_video(
 
             if clip_path and clip_path.endswith(".mp4") and os.path.exists(clip_path):
                 raw = VideoFileClip(clip_path).without_audio()
-                # loop clip to match audio duration if shorter
                 if raw.duration < duration:
                     loops = int(duration / raw.duration) + 1
-                    from moviepy.editor import concatenate_videoclips as _cv
-                    raw = _cv([raw] * loops)
-                clip = raw.subclip(0, duration).resize((VIDEO_W, VIDEO_H))
+                    raw = concatenate_videoclips([raw] * loops)
+                clip = raw.subclip(0, duration).resize((vid_w, vid_h))
             else:
-                clip = _ken_burns_clip(clip_path or "", duration)
+                clip = _ken_burns_clip(clip_path or "", duration, vid_w, vid_h)
 
             clip = clip.set_audio(audio)
             clip = fadein(clip, FADE_DUR)
@@ -111,7 +116,6 @@ def assemble_video(
 
     final = concatenate_videoclips(final_clips, method="compose", padding=-FADE_DUR)
 
-    # mix background music at low volume
     if music_path and os.path.exists(music_path):
         final = _mix_music(final, music_path)
 
@@ -240,8 +244,9 @@ def _pollo_image_to_video(image_path: str, prompt: str, duration: int) -> str:
     raise TimeoutError("Pollo.ai timed out after 10 minutes.")
 
 
-def _moviepy_static_clip(image_path: str, clip_path: str, duration: int) -> str:
-    comp = _ken_burns_clip(image_path, duration)
+def _moviepy_static_clip(image_path: str, clip_path: str, duration: int,
+                          vid_w: int = 1280, vid_h: int = 720) -> str:
+    comp = _ken_burns_clip(image_path, duration, vid_w, vid_h)
     comp.write_videofile(
         clip_path, fps=FPS, codec="libx264",
         temp_audiofile=os.path.join(tempfile.gettempdir(), "tmp_clip.m4a"),
@@ -251,19 +256,20 @@ def _moviepy_static_clip(image_path: str, clip_path: str, duration: int) -> str:
     return clip_path
 
 
-def _ken_burns_clip(image_path: str, duration: float):
+def _ken_burns_clip(image_path: str, duration: float,
+                    vid_w: int = 1280, vid_h: int = 720):
     """Return a slow-zoom ImageClip — gives static images some motion."""
     from moviepy.editor import ImageClip, CompositeVideoClip, ColorClip
 
-    img = ImageClip(image_path).resize(height=VIDEO_H)
-    if img.w < VIDEO_W:
-        img = img.resize(width=VIDEO_W)
+    img = ImageClip(image_path).resize(height=vid_h)
+    if img.w < vid_w:
+        img = img.resize(width=vid_w)
     img  = img.set_duration(duration)
     zoom = 0.04
     img  = img.resize(lambda t: 1 + zoom * t / max(duration, 1))
-    bg   = ColorClip((VIDEO_W, VIDEO_H), color=[0, 0, 0], duration=duration)
+    bg   = ColorClip((vid_w, vid_h), color=[0, 0, 0], duration=duration)
     return CompositeVideoClip([bg, img.set_position("center")],
-                              size=(VIDEO_W, VIDEO_H))
+                              size=(vid_w, vid_h))
 
 
 def _mix_music(video_clip, music_path: str):

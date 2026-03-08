@@ -27,10 +27,44 @@ const STEP_ORDER   = [
 let _pollTimer   = null;
 let _projectId   = null;
 
+// ── Settings helpers ──────────────────────────────────────────────────────────
+
+function getSegValue(segId) {
+  const active = document.querySelector(`#${segId} .seg-btn.active`);
+  return active ? active.dataset.value : null;
+}
+
+function collectSettings() {
+  return {
+    duration:      parseInt(getSegValue('durationSeg') || '60', 10),
+    tone:          getSegValue('toneSeg')   || 'educational',
+    image_style:   getSegValue('styleSeg')  || 'photorealistic',
+    aspect_ratio:  getSegValue('ratioSeg')  || '16:9',
+    voice_gender:  getSegValue('voiceSeg')  || 'auto',
+    include_music: getSegValue('musicSeg')  === 'true',
+  };
+}
+
+function toggleSettings() {
+  const body  = document.getElementById('settingsBody');
+  const arrow = document.getElementById('settingsArrow');
+  const open  = body.classList.toggle('open');
+  arrow.classList.toggle('open', open);
+}
+
+// Segmented control click handler
+document.addEventListener('click', e => {
+  if (!e.target.classList.contains('seg-btn')) return;
+  const parent = e.target.closest('.seg-control');
+  if (!parent) return;
+  parent.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+});
+
 // ── Entry point ──────────────────────────────────────────────────────────────
 
 async function startGeneration() {
-  const input = document.getElementById('promptInput');
+  const input  = document.getElementById('promptInput');
   const prompt = input.value.trim();
 
   clearError();
@@ -39,18 +73,19 @@ async function startGeneration() {
     showError('Please enter a video prompt before generating.');
     return;
   }
-  if (prompt.length < 15) {
+  if (prompt.length < 10) {
     showError('Your prompt is too short — please describe your video in more detail.');
     return;
   }
 
+  const settings = collectSettings();
   setGenerating(true);
 
   try {
     const res  = await fetch(`${API_BASE}/generate`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ prompt }),
+      body:    JSON.stringify({ prompt, settings }),
     });
     const data = await res.json();
 

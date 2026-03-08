@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls \"E:/My_Projects/Mukku/.env\"*)"
+      "Bash(ls \"E:/My_Projects/Mukku/.env\"*)",
+      "Bash(source venv/Scripts/activate)",
+      "Bash(pip install \"Pillow<10.0.0\" --quiet)",
+      "Bash(python -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(python -c \":*)"
     ]
   }
 }

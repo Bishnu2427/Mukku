@@ -10,14 +10,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from flask import Flask, jsonify, request, send_file, abort
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 
-from database.mongo_connection  import create_project, get_project, list_projects
-from services.pipeline_manager  import run_pipeline
+from database.mongo_connection import create_project, get_project, list_projects
+from services.pipeline_manager import run_pipeline
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +35,12 @@ app = Flask(
 )
 CORS(app)
 
+VALID_TONES        = {"educational", "professional", "motivational", "casual", "entertaining"}
+VALID_STYLES       = {"photorealistic", "cinematic", "documentary"}
+VALID_RATIOS       = {"16:9", "9:16", "1:1"}
+VALID_VOICES       = {"auto", "female", "male"}
+MAX_DURATION_SECS  = 600   # 10 minutes hard cap
+
 
 @app.route("/")
 def index():
@@ -43,29 +49,45 @@ def index():
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    """Start a new video generation pipeline."""
     data   = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "").strip()
 
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
-    if len(prompt) < 15:
+    if len(prompt) < 10:
         return jsonify({"error": "Prompt is too short — please be more descriptive."}), 400
-    if len(prompt) > 2000:
-        return jsonify({"error": "Prompt is too long (max 2000 characters)."}), 400
+    if len(prompt) > 3000:
+        return jsonify({"error": "Prompt is too long (max 3000 characters)."}), 400
+
+    # Pull user settings, apply sensible defaults + bounds
+    raw_settings = data.get("settings", {}) or {}
+
+    duration = int(raw_settings.get("duration", 60))
+    duration = max(15, min(duration, MAX_DURATION_SECS))
+
+    settings = {
+        "duration":      duration,
+        "tone":          raw_settings.get("tone", "educational")     if raw_settings.get("tone")     in VALID_TONES  else "educational",
+        "image_style":   raw_settings.get("image_style", "photorealistic") if raw_settings.get("image_style") in VALID_STYLES else "photorealistic",
+        "aspect_ratio":  raw_settings.get("aspect_ratio", "16:9")    if raw_settings.get("aspect_ratio") in VALID_RATIOS else "16:9",
+        "voice_gender":  raw_settings.get("voice_gender", "auto")    if raw_settings.get("voice_gender") in VALID_VOICES else "auto",
+        "include_music": bool(raw_settings.get("include_music", True)),
+        "scene_count":   int(raw_settings.get("scene_count", 0)),     # 0 = auto
+    }
 
     project_id = uuid.uuid4().hex[:10]
     create_project(project_id, prompt)
 
     thread = threading.Thread(
         target=run_pipeline,
-        args=(project_id, prompt),
+        args=(project_id, prompt, settings),
         daemon=True,
         name=f"pipeline-{project_id}",
     )
     thread.start()
 
-    logger.info("New project %s queued for prompt: %.80s", project_id, prompt)
+    logger.info("Project %s started — duration=%ds  style=%s  tone=%s",
+                project_id, settings["duration"], settings["image_style"], settings["tone"])
     return jsonify({"project_id": project_id, "status": "processing"}), 202
 
 
@@ -106,7 +128,7 @@ def get_video(project_id: str):
         mimetype="video/mp4",
         as_attachment=download,
         download_name=f"ai_video_{project_id}.mp4",
-        conditional=True,    # supports Range requests for the HTML5 player
+        conditional=True,
     )
 
 
@@ -114,7 +136,6 @@ def get_video(project_id: str):
 def projects():
     limit = min(int(request.args.get("limit", 10)), 50)
     items = list_projects(limit)
-    # serialize datetime objects before sending
     for item in items:
         for k in ("created_at", "updated_at"):
             if item.get(k):

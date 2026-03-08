@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Video Generator</title>
+  <title>Mukku — AI Video Generator</title>
   <link rel="stylesheet" href="/static/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,43 +11,125 @@
 </head>
 <body>
 
-  <!-- ── Header ── -->
   <header class="header">
     <div class="header-inner">
       <div class="logo">
         <span class="logo-icon">&#9654;</span>
-        <span class="logo-text">AI Video Generator</span>
+        <span class="logo-text">Mukku</span>
       </div>
-      <span class="header-tagline">Prompt → Professional Video</span>
+      <span class="header-tagline">Text → Professional Video</span>
     </div>
   </header>
 
-  <!-- ── Main ── -->
   <main class="main">
 
-    <!-- ── Input Card ── -->
+    <!-- Input Card -->
     <section class="card input-card" id="inputSection">
       <h2 class="card-title">What video do you want to create?</h2>
       <p class="card-subtitle">
-        Describe your video idea in detail — the more specific you are, the better the result.
+        Describe your topic in detail — the more specific you are, the better the result.
       </p>
 
       <div class="prompt-wrapper">
         <textarea
           id="promptInput"
           class="prompt-input"
-          placeholder="e.g. Create a 60-second YouTube tutorial explaining how to use baby diapers for new parents, in a calm and professional tone."
+          placeholder="e.g. Create a tutorial on how to use baby diapers for new parents, covering preparation, changing steps, and hygiene tips, in a calm and reassuring tone."
           rows="5"
-          maxlength="2000"
+          maxlength="3000"
         ></textarea>
-        <div class="char-count"><span id="charCount">0</span> / 2000</div>
+        <div class="char-count"><span id="charCount">0</span> / 3000</div>
       </div>
 
       <div class="example-prompts">
         <span class="examples-label">Try an example:</span>
-        <button class="example-btn" data-prompt="Create a 60-second YouTube tutorial on how to use baby diapers for new parents in a calm and reassuring tone.">Baby Diapers Tutorial</button>
-        <button class="example-btn" data-prompt="Make a 45-second explainer video about the benefits of drinking water daily for general health enthusiasts.">Benefits of Water</button>
-        <button class="example-btn" data-prompt="Create a 60-second motivational video about the importance of exercise and healthy habits for young adults.">Healthy Habits</button>
+        <button class="example-btn" data-prompt="Create a tutorial on how to properly change a baby diaper for first-time parents. Cover all steps from preparation to disposal, with safety tips, in a calm and reassuring tone.">Baby Diaper Tutorial</button>
+        <button class="example-btn" data-prompt="Make an explainer video about the health benefits of drinking enough water daily. Include science-backed facts, symptoms of dehydration, and practical daily tips.">Benefits of Water</button>
+        <button class="example-btn" data-prompt="Create a motivational video about building consistent exercise habits. Include the science of habit formation, beginner-friendly tips, and inspiring real-world examples.">Exercise Habits</button>
+      </div>
+
+      <!-- Settings Panel -->
+      <div class="settings-panel">
+        <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
+          <span class="settings-icon">&#9881;</span>
+          Customize Video
+          <span class="settings-arrow" id="settingsArrow">&#9660;</span>
+        </button>
+
+        <div class="settings-body" id="settingsBody">
+
+          <div class="settings-row">
+
+            <div class="setting-group">
+              <label class="setting-label">Duration</label>
+              <div class="seg-control" id="durationSeg">
+                <button class="seg-btn" data-value="30">30s</button>
+                <button class="seg-btn active" data-value="60">1 min</button>
+                <button class="seg-btn" data-value="90">90s</button>
+                <button class="seg-btn" data-value="120">2 min</button>
+                <button class="seg-btn" data-value="180">3 min</button>
+                <button class="seg-btn" data-value="300">5 min</button>
+              </div>
+              <p class="setting-hint">Max 5 min per generation. For longer content, generate multiple videos.</p>
+            </div>
+
+            <div class="setting-group">
+              <label class="setting-label">Tone</label>
+              <div class="seg-control" id="toneSeg">
+                <button class="seg-btn active" data-value="educational">Educational</button>
+                <button class="seg-btn" data-value="professional">Professional</button>
+                <button class="seg-btn" data-value="motivational">Motivational</button>
+                <button class="seg-btn" data-value="casual">Casual</button>
+                <button class="seg-btn" data-value="entertaining">Entertaining</button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="settings-row">
+
+            <div class="setting-group">
+              <label class="setting-label">Image Style</label>
+              <div class="seg-control" id="styleSeg">
+                <button class="seg-btn active" data-value="photorealistic">Photorealistic</button>
+                <button class="seg-btn" data-value="cinematic">Cinematic</button>
+                <button class="seg-btn" data-value="documentary">Documentary</button>
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <label class="setting-label">Aspect Ratio</label>
+              <div class="seg-control" id="ratioSeg">
+                <button class="seg-btn active" data-value="16:9">16:9 Landscape</button>
+                <button class="seg-btn" data-value="9:16">9:16 Vertical</button>
+                <button class="seg-btn" data-value="1:1">1:1 Square</button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="settings-row">
+
+            <div class="setting-group">
+              <label class="setting-label">Voiceover</label>
+              <div class="seg-control" id="voiceSeg">
+                <button class="seg-btn active" data-value="auto">Auto</button>
+                <button class="seg-btn" data-value="female">Female</button>
+                <button class="seg-btn" data-value="male">Male</button>
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <label class="setting-label">Background Music</label>
+              <div class="seg-control" id="musicSeg">
+                <button class="seg-btn active" data-value="true">On</button>
+                <button class="seg-btn" data-value="false">Off</button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
       </div>
 
       <button id="generateBtn" class="btn btn-primary" onclick="startGeneration()">
@@ -58,7 +140,7 @@
       <div id="errorMsg" class="error-msg hidden"></div>
     </section>
 
-    <!-- ── Progress Card ── -->
+    <!-- Progress Card -->
     <section class="card progress-card hidden" id="progressSection">
       <div class="progress-header">
         <h2 class="card-title">Generating Your Video</h2>
@@ -81,7 +163,7 @@
           <div class="step-dot"></div>
           <div class="step-info">
             <span class="step-name">Writing Script</span>
-            <span class="step-desc">Generating professional narration</span>
+            <span class="step-desc">Generating on-topic narration</span>
           </div>
         </div>
         <div class="step" data-step="planning_scenes">
@@ -95,7 +177,7 @@
           <div class="step-dot"></div>
           <div class="step-info">
             <span class="step-name">Generating Images</span>
-            <span class="step-desc">Creating cinematic visuals with Leonardo.ai</span>
+            <span class="step-desc">Creating topic-specific visuals with Leonardo.ai</span>
           </div>
         </div>
         <div class="step" data-step="generating_clips">
@@ -116,14 +198,14 @@
           <div class="step-dot"></div>
           <div class="step-info">
             <span class="step-name">Composing Music</span>
-            <span class="step-desc">Generating custom background track with Suno</span>
+            <span class="step-desc">Generating background track with Suno</span>
           </div>
         </div>
         <div class="step" data-step="assembling_video">
           <div class="step-dot"></div>
           <div class="step-info">
             <span class="step-name">Assembling Video</span>
-            <span class="step-desc">Merging clips, audio & music with MoviePy</span>
+            <span class="step-desc">Merging clips, audio and music</span>
           </div>
         </div>
         <div class="step" data-step="completed">
@@ -135,20 +217,18 @@
         </div>
       </div>
 
-      <!-- Script preview (shown after script is generated) -->
       <div id="scriptPreview" class="script-preview hidden">
         <h3 class="section-label">Generated Script</h3>
         <div class="script-text" id="scriptText"></div>
       </div>
 
-      <!-- Scene cards (shown after scene planning) -->
       <div id="scenesPreview" class="scenes-preview hidden">
         <h3 class="section-label">Scene Breakdown</h3>
         <div class="scenes-grid" id="scenesGrid"></div>
       </div>
     </section>
 
-    <!-- ── Error Card ── -->
+    <!-- Error Card -->
     <section class="card error-card hidden" id="errorSection">
       <div class="error-icon">&#9888;</div>
       <h2 class="card-title">Generation Failed</h2>
@@ -156,7 +236,7 @@
       <button class="btn btn-secondary" onclick="resetUI()">Try Again</button>
     </section>
 
-    <!-- ── Result Card ── -->
+    <!-- Result Card -->
     <section class="card result-card hidden" id="resultSection">
       <div class="result-header">
         <div class="success-badge">&#10003; Video Ready</div>
@@ -184,9 +264,8 @@
 
   </main>
 
-  <!-- ── Footer ── -->
   <footer class="footer">
-    <p>Powered by Ollama &middot; Leonardo.ai &middot; Kling.ai &middot; Suno &middot; MoviePy</p>
+    <p>Powered by Groq &middot; Leonardo.ai &middot; Kling.ai &middot; Suno &middot; MoviePy</p>
   </footer>
 
   <script src="/static/script.js"></script>

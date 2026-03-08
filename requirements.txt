@@ -16,7 +16,7 @@ requests
 diffusers
 transformers
 accelerate
-Pillow
+Pillow<10.0.0
 
 # ── Voice generation ────────────────────────────────────────────────────────
 # Note: Coqui TTS (TTS package) does NOT support Python 3.12+, so it is excluded.

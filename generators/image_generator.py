@@ -19,23 +19,52 @@ LEONARDO_MODEL   = os.getenv("LEONARDO_MODEL", "6b645e3a-d64f-4341-a6d8-7a3690fb
 _sd_pipeline = None
 
 
-def generate_image(visual_prompt: str, project_id: str, scene_number: int) -> str:
+# Maps aspect ratio string → (width, height) for Leonardo
+_AR_SIZES = {
+    "16:9": (1024, 576),
+    "9:16": (576, 1024),
+    "1:1":  (768, 768),
+}
+
+# Per-style prompt suffixes and Leonardo presets
+_STYLE_CONFIG = {
+    "photorealistic": {
+        "suffix":  "realistic photograph, natural lighting, sharp focus, shot on Canon EOS R5, 4k",
+        "negative": "painting, illustration, cartoon, anime, drawing, CGI, render, blurry, watermark, text, distorted, deformed",
+        "photoReal": True,
+        "presetStyle": "PHOTOGRAPHY",
+    },
+    "cinematic": {
+        "suffix":  "cinematic film still, anamorphic lens, dramatic lighting, shallow depth of field, 4k",
+        "negative": "blurry, low quality, watermark, text, distorted, deformed, cartoon, anime",
+        "photoReal": False,
+        "presetStyle": "CINEMATIC",
+    },
+    "documentary": {
+        "suffix":  "documentary photography, candid shot, natural daylight, photojournalism style, 4k",
+        "negative": "posed, studio lighting, artificial, cartoon, anime, illustration, watermark, text, blurry",
+        "photoReal": True,
+        "presetStyle": "PHOTOGRAPHY",
+    },
+}
+
+
+def generate_image(visual_prompt: str, project_id: str, scene_number: int,
+                   image_style: str = "photorealistic", aspect_ratio: str = "16:9") -> str:
     """Generate a scene image and return the local file path of the saved PNG."""
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{project_id}_scene{scene_number:02d}.png"
     filepath = str(IMAGES_DIR / filename)
 
-    # try Leonardo.ai first
     if LEONARDO_API_KEY:
         try:
-            url = _leonardo_generate(visual_prompt)
+            url = _leonardo_generate(visual_prompt, image_style, aspect_ratio)
             _download_file(url, filepath)
             logger.info("Leonardo.ai image saved: %s", filepath)
             return filepath
         except Exception as exc:
             logger.warning("Leonardo.ai failed (%s) — trying local SD.", exc)
 
-    # fall back to local Stable Diffusion
     try:
         return _generate_with_sd(visual_prompt, filepath)
     except Exception as exc:
@@ -44,33 +73,33 @@ def generate_image(visual_prompt: str, project_id: str, scene_number: int) -> st
     return _generate_placeholder(visual_prompt, filepath, scene_number)
 
 
-def _leonardo_generate(prompt: str) -> str:
+def _leonardo_generate(prompt: str, image_style: str = "photorealistic",
+                        aspect_ratio: str = "16:9") -> str:
     """Submit a generation job to Leonardo.ai and return the image URL when ready."""
     headers = {
         "Authorization": f"Bearer {LEONARDO_API_KEY}",
         "Content-Type": "application/json",
     }
 
-    enhanced = (
-        f"{prompt}, cinematic photography, ultra sharp, professional lighting, "
-        "8k resolution, high detail, award-winning photograph"
-    )
-    negative = (
-        "blurry, low quality, distorted, deformed, ugly, watermark, "
-        "text overlay, duplicate, bad composition"
-    )
+    style_cfg = _STYLE_CONFIG.get(image_style, _STYLE_CONFIG["photorealistic"])
+    w, h      = _AR_SIZES.get(aspect_ratio, (1024, 576))
+
+    enhanced = f"{prompt}, {style_cfg['suffix']}"
+    negative = style_cfg["negative"]
 
     body = {
         "prompt":              enhanced,
         "negative_prompt":     negative,
         "modelId":             LEONARDO_MODEL,
-        "width":               1024,
-        "height":              576,        # 16:9
+        "width":               w,
+        "height":              h,
         "num_images":          1,
         "guidance_scale":      7,
-        "num_inference_steps": 20,
+        "num_inference_steps": 25,
         "alchemy":             True,
         "highResolution":      False,
+        "photoReal":           style_cfg.get("photoReal", False),
+        "presetStyle":         style_cfg.get("presetStyle", "NONE"),
     }
 
     resp = requests.post(
