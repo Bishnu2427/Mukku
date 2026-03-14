@@ -234,6 +234,58 @@ def health():
     return jsonify({"status": "ok", "version": "2.0.0"})
 
 
+@app.route("/enquiry", methods=["POST"])
+def enquiry():
+    """Receive a contact-form submission and forward it via SMTP."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    data    = request.get_json(silent=True) or {}
+    name    = data.get("name", "").strip()
+    email   = data.get("email", "").strip()
+    etype   = data.get("type", "Not specified")
+    message = data.get("message", "").strip()
+
+    if not name or not email or not message:
+        return jsonify({"error": "name, email and message are required"}), 400
+
+    smtp_server   = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port     = int(os.getenv("SMTP_PORT", 587))
+    smtp_user     = os.getenv("SMTP_USERNAME", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+
+    if not smtp_user or not smtp_password:
+        logger.warning("SMTP credentials not configured — enquiry not sent.")
+        return jsonify({"error": "Email service not configured"}), 503
+
+    body = f"""New enquiry from Mukku AI Studio landing page
+
+Name    : {name}
+Email   : {email}
+Type    : {etype}
+Message :
+{message}
+"""
+    msg = MIMEMultipart()
+    msg["From"]    = smtp_user
+    msg["To"]      = smtp_user          # send to yourself
+    msg["Subject"] = f"[Mukku AI] Enquiry from {name}"
+    msg["Reply-To"] = email
+    msg.attach(MIMEText(body, "plain"))
+
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, smtp_user, msg.as_string())
+        logger.info("Enquiry email sent from %s (%s)", name, email)
+        return jsonify({"status": "sent"})
+    except Exception as exc:
+        logger.error("Failed to send enquiry email: %s", exc)
+        return jsonify({"error": "Failed to send email"}), 500
+
+
 if __name__ == "__main__":
     port  = int(os.getenv("FLASK_PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"

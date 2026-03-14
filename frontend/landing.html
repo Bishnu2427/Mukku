@@ -53,7 +53,7 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -80,6 +80,12 @@
       --text-primary:   #f1f0f5;
       --text-secondary: rgba(241,240,245,0.55);
       --text-muted:     rgba(241,240,245,0.3);
+      /* Exact SurrealDB obsidian scale */
+      --obsidian-1: #0E0C14;
+      --obsidian-2: #16141F;
+      --obsidian-3: #201D29;
+      --obsidian-4: #888495;
+      --mono: 'JetBrains Mono', monospace;
     }
 
     html {
@@ -146,13 +152,13 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
       color: var(--purple-light);
       margin-bottom: 1.2rem;
-      opacity: 0.9;
+      opacity: 0.85;
     }
 
     .section-title {
@@ -300,11 +306,12 @@
       align-items: center;
       gap: 0.45rem;
       padding: 0.38rem 1rem;
-      background: rgba(124,58,237,0.08);
-      border: 1px solid rgba(124,58,237,0.22);
-      border-radius: 100px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      background: rgba(124,58,237,0.07);
+      border: 1px solid rgba(124,58,237,0.18);
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 400;
       letter-spacing: 0.06em;
       color: var(--purple-light);
       margin-bottom: 2.2rem;
@@ -592,52 +599,133 @@
       50% { transform: scale(1.4); opacity: 1; }
     }
 
-    /* ===== TRUSTED BY ===== */
+    /* ===== TRUSTED BY / MARQUEE ===== */
     #trusted {
-      padding: 48px 0;
+      padding: 56px 0;
       position: relative;
       z-index: 1;
       border-top: 1px solid var(--glass-border);
       border-bottom: 1px solid var(--glass-border);
+      overflow: hidden;
     }
 
     .trusted-label {
       text-align: center;
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--text-muted);
+      color: var(--obsidian-4);
       font-weight: 500;
-      margin-bottom: 1.6rem;
+      margin-bottom: 2rem;
     }
 
-    .platform-strip {
+    .marquee-track {
+      position: relative;
+      overflow: hidden;
+      /* fade edges */
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
+    }
+
+    .marquee-inner {
+      display: flex;
+      width: max-content;
+      animation: marquee-scroll 28s linear infinite;
+    }
+
+    .marquee-inner:hover { animation-play-state: paused; }
+
+    .marquee-set {
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 0;
-      flex-wrap: wrap;
     }
 
-    .platform-strip-item {
-      padding: 0.5rem 2rem;
+    .marquee-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.45rem 2.2rem;
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: -0.01em;
-      transition: color 0.2s;
+      color: var(--obsidian-4);
+      white-space: nowrap;
       position: relative;
+      transition: color 0.2s;
     }
 
-    .platform-strip-item:not(:last-child)::after {
-      content: '·';
+    .marquee-item:hover { color: var(--text-secondary); }
+
+    .marquee-item::after {
+      content: '';
       position: absolute;
-      right: -2px;
-      color: rgba(255,255,255,0.1);
+      right: 0;
+      top: 30%;
+      height: 40%;
+      width: 1px;
+      background: rgba(255,255,255,0.08);
     }
 
-    .platform-strip-item:hover { color: var(--text-secondary); }
+    .marquee-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--purple);
+      opacity: 0.5;
+      flex-shrink: 0;
+    }
+
+    .marquee-item.service .marquee-dot {
+      background: var(--cyan);
+    }
+
+    .marquee-item.service {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    @keyframes marquee-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    /* ===== HERO REFLECTION BAND ===== */
+    .hero-reflection {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 320px;
+      background: linear-gradient(
+        to top,
+        rgba(124,58,237,0.07) 0%,
+        rgba(59,130,246,0.04) 40%,
+        transparent 100%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero-reflection::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,58,237,0.35) 30%, rgba(59,130,246,0.35) 70%, transparent);
+    }
+
+    /* mono font on mock titlebar */
+    .mock-titlebar-label {
+      font-family: var(--mono) !important;
+      font-size: 0.68rem !important;
+    }
 
     /* ===== STATS BAR ===== */
     #stats {
@@ -734,10 +822,10 @@
       background: rgba(124,58,237,0.1);
       border: 1px solid rgba(124,58,237,0.2);
       border-radius: 6px;
+      font-family: var(--mono);
       font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      font-weight: 500;
+      letter-spacing: 0.06em;
       color: var(--purple-light);
       margin-bottom: 1.2rem;
     }
@@ -760,15 +848,16 @@
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      color: var(--text-muted);
-      text-transform: uppercase;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--obsidian-4);
     }
 
     .hiw-powered span {
-      color: var(--purple-light);
+      color: var(--cyan);
+      font-weight: 500;
     }
 
     /* Visual Cards for HIW */
@@ -1402,49 +1491,292 @@
     }
 
     /* ===== FOOTER ===== */
-    footer {
-      padding: 40px 0;
-      border-top: 1px solid var(--glass-border);
+    /* ===== CONTACT SECTION ===== */
+    #contact {
+      padding: 120px 0;
       position: relative;
       z-index: 1;
     }
 
-    .footer-inner {
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5rem;
+      align-items: start;
+    }
+
+    .contact-info h2 {
+      font-size: clamp(1.8rem, 3vw, 2.5rem);
+      margin-bottom: 1rem;
+      letter-spacing: -0.03em;
+    }
+
+    .contact-info p {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin-bottom: 2rem;
+    }
+
+    .contact-detail {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+    }
+
+    .contact-detail-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(124,58,237,0.1);
+      border: 1px solid rgba(124,58,237,0.2);
+      flex-shrink: 0;
+      font-size: 1rem;
+    }
+
+    .contact-form {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2.5rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group.full { grid-column: span 2; }
+
+    .form-label {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      font-family: var(--mono);
+      letter-spacing: 0.04em;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+
+    .form-input::placeholder,
+    .form-textarea::placeholder { color: var(--text-muted); }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      border-color: rgba(124,58,237,0.5);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.08);
+    }
+
+    .form-select {
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+
+    .form-submit {
+      width: 100%;
+      padding: 0.9rem;
+      background: linear-gradient(135deg, var(--purple), #5b21b6);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      letter-spacing: -0.01em;
+    }
+
+    .form-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(124,58,237,0.35);
+    }
+
+    .form-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.75rem;
+      font-family: var(--mono);
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--glass-border);
+      overflow: hidden;
+    }
+
+    .footer-glow {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      height: 400px;
+      background: radial-gradient(ellipse 70% 60% at 50% 100%, rgba(124,58,237,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .footer-top {
+      padding: 72px 0 60px;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .footer-brand {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .footer-brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      text-decoration: none;
+    }
+
+    .footer-brand-logo img { height: 28px; width: auto; }
+
+    .footer-brand-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--purple-light), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .footer-brand-tagline {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+      margin-bottom: 1.5rem;
+    }
+
+    .footer-studio-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 1.2rem;
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-family: 'Space Grotesk', sans-serif;
+      color: var(--purple-light);
+      transition: all 0.2s;
+      width: fit-content;
+    }
+
+    .footer-studio-btn:hover {
+      background: rgba(124,58,237,0.2);
+      border-color: rgba(124,58,237,0.45);
+    }
+
+    .footer-cols {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2rem;
+    }
+
+    .footer-col-title {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      margin-bottom: 1.2rem;
+    }
+
+    .footer-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .footer-col ul a {
+      font-size: 0.83rem;
+      color: var(--obsidian-4);
+      transition: color 0.2s;
+    }
+
+    .footer-col ul a:hover { color: var(--text-secondary); }
+
+    .footer-bottom {
+      padding: 24px 0;
+      border-top: 1px solid var(--glass-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
     }
-
-    .footer-logo {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-family: 'Space Grotesk', sans-serif;
-      font-weight: 700;
-      font-size: 1rem;
-    }
-
-    .footer-logo img { height: 24px; }
-
-    .footer-links {
-      display: flex;
-      gap: 1.8rem;
-      list-style: none;
-    }
-
-    .footer-links a {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      transition: color 0.2s;
-    }
-    .footer-links a:hover { color: var(--text-secondary); }
 
     .footer-copy {
       font-size: 0.78rem;
-      color: var(--text-muted);
+      color: var(--obsidian-4);
+      font-family: var(--mono);
     }
+
+    .footer-bottom-links {
+      display: flex;
+      gap: 1.6rem;
+      list-style: none;
+    }
+
+    .footer-bottom-links a {
+      font-size: 0.78rem;
+      color: var(--obsidian-4);
+      transition: color 0.2s;
+    }
+
+    .footer-bottom-links a:hover { color: var(--text-secondary); }
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 900px) {
@@ -1458,8 +1790,12 @@
       .feature-card.wide .feature-content-row { grid-template-columns: 1fr; }
       .languages-grid { grid-template-columns: 1fr; }
       .media-grid { grid-template-columns: 1fr; }
-      .footer-inner { flex-direction: column; text-align: center; }
-      .footer-links { justify-content: center; }
+      .contact-grid { grid-template-columns: 1fr; gap: 3rem; }
+      .form-row { grid-template-columns: 1fr; }
+      .form-group.full { grid-column: span 1; }
+      .footer-top { grid-template-columns: 1fr; gap: 3rem; }
+      .footer-cols { grid-template-columns: repeat(2, 1fr); gap: 2rem; }
+      .footer-bottom { flex-direction: column; text-align: center; }
     }
 
     @media (max-width: 540px) {
@@ -1483,6 +1819,8 @@
     <li><a href="#features">Features</a></li>
     <li><a href="#platforms">Platforms</a></li>
     <li><a href="#languages">Languages</a></li>
+    <li><a href="#your-media">Your Media</a></li>
+    <li><a href="#contact">Contact</a></li>
   </ul>
   <a href="/studio" class="nav-cta">Open Studio →</a>
 </nav>
@@ -1491,6 +1829,7 @@
 <section id="hero">
   <div class="hero-orb-1"></div>
   <div class="hero-orb-2"></div>
+  <div class="hero-reflection"></div>
   <div class="container">
     <div class="hero-inner">
       <div class="hero-badge">✦ Next-Gen Creator Platform</div>
@@ -1552,16 +1891,41 @@
   </div>
 </section>
 
-<!-- ===== TRUSTED BY ===== -->
+<!-- ===== TRUSTED BY / MARQUEE ===== -->
 <section id="trusted">
-  <div class="container">
-    <p class="trusted-label">Powering creators across platforms</p>
-    <div class="platform-strip">
-      <div class="platform-strip-item">YouTube</div>
-      <div class="platform-strip-item">TikTok</div>
-      <div class="platform-strip-item">Instagram</div>
-      <div class="platform-strip-item">LinkedIn</div>
-      <div class="platform-strip-item">X</div>
+  <p class="trusted-label">Platforms &amp; AI services powering every video</p>
+  <div class="marquee-track">
+    <div class="marquee-inner">
+      <!-- Set 1 -->
+      <div class="marquee-set">
+        <div class="marquee-item"><span class="marquee-dot"></span>YouTube</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>TikTok</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Instagram Reels</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>YouTube Shorts</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>LinkedIn</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>X</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>AI Image Engine</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>AI Clip Engine</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>AI Music Engine</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>Script Intelligence</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>Voice Synthesis</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>Smart Assembly</div>
+      </div>
+      <!-- Set 2 (duplicate for seamless loop) -->
+      <div class="marquee-set" aria-hidden="true">
+        <div class="marquee-item"><span class="marquee-dot"></span>YouTube</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>TikTok</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Instagram Reels</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>YouTube Shorts</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>LinkedIn</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>X</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>AI Image Engine</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>AI Clip Engine</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>AI Music Engine</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>Script Intelligence</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>Voice Synthesis</div>
+        <div class="marquee-item service"><span class="marquee-dot"></span>Smart Assembly</div>
+      </div>
     </div>
   </div>
 </section>
@@ -1607,7 +1971,7 @@
           <div class="hiw-stage-badge">Stage 1–2</div>
           <h3 class="hiw-h3">Script &amp; Scene Writing</h3>
           <p class="hiw-desc">Mukku reads your prompt and crafts a structured multi-scene script complete with shot directions, dialogue, and mood cues — all optimised for your chosen platform's format and duration.</p>
-          <div class="hiw-powered">Powered by <span>GPT-4o · Ollama</span></div>
+          <div class="hiw-powered">Powered by <span>Mukku Script Intelligence</span></div>
         </div>
         <div class="hiw-visual">
           <div class="hiw-visual-card">
@@ -1636,7 +2000,7 @@
           <div class="hiw-stage-badge">Stage 3–4</div>
           <h3 class="hiw-h3">Image &amp; Clip Generation</h3>
           <p class="hiw-desc">Each scene is rendered as a photorealistic image by Leonardo.ai, then brought to life as an animated video clip by Kling.ai — producing cinematic motion from a single description.</p>
-          <div class="hiw-powered">Powered by <span>Leonardo.ai · Kling.ai · Pollo.ai</span></div>
+          <div class="hiw-powered">Powered by <span>Mukku Image &amp; Clip Engine</span></div>
         </div>
         <div class="hiw-visual">
           <div class="hiw-visual-card">
@@ -1656,7 +2020,7 @@
           <div class="hiw-stage-badge">Stage 5–6</div>
           <h3 class="hiw-h3">Voiceover &amp; Music</h3>
           <p class="hiw-desc">A natural-sounding AI voiceover narrates the script in your selected language, while Suno AI composes an original, mood-matched soundtrack — both timed to the visuals automatically.</p>
-          <div class="hiw-powered">Powered by <span>ElevenLabs · Suno AI</span></div>
+          <div class="hiw-powered">Powered by <span>Mukku Voice &amp; Music Engine</span></div>
         </div>
         <div class="hiw-visual">
           <div class="hiw-visual-card">
@@ -1693,7 +2057,7 @@
           <div class="hiw-stage-badge">Stage 7–8</div>
           <h3 class="hiw-h3">Final Assembly</h3>
           <p class="hiw-desc">MoviePy assembles all clips, overlays captions in the correct language, mixes audio tracks, and renders the final MP4 at your platform's optimal resolution and aspect ratio — ready to download and post.</p>
-          <div class="hiw-powered">Powered by <span>MoviePy · FFmpeg</span></div>
+          <div class="hiw-powered">Powered by <span>Mukku Smart Assembly</span></div>
         </div>
         <div class="hiw-visual">
           <div class="hiw-visual-card">
@@ -1947,21 +2311,133 @@
   </div>
 </section>
 
+<!-- ===== CONTACT ===== -->
+<section id="contact" class="section-alt">
+  <div class="container">
+    <div class="contact-grid">
+      <div class="contact-info reveal">
+        <p class="eyebrow">Get in Touch</p>
+        <h2>Let's Build Something<br><span class="gradient-text">Together</span></h2>
+        <p>Have a question, a partnership idea, or just want to know what Mukku AI can do for your brand? Drop us a message and we'll get back to you within 24 hours.</p>
+        <div class="contact-detail">
+          <div class="contact-detail-icon">📬</div>
+          <span>kumarsinghbishnu240@gmail.com</span>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-detail-icon">⚡</div>
+          <span>Response within 24 hours</span>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-detail-icon">🌏</div>
+          <span>Available for global collaborations</span>
+        </div>
+      </div>
+      <div class="contact-form reveal" style="transition-delay:0.1s">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Your Name</label>
+            <input type="text" class="form-input" placeholder="Rahul Sharma" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" placeholder="rahul@example.com" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">What describes you best?</label>
+          <select class="form-select">
+            <option value="" disabled selected>Select one…</option>
+            <option>Content Creator</option>
+            <option>Brand / Marketer</option>
+            <option>Agency</option>
+            <option>Student / Researcher</option>
+            <option>Just Curious</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Message</label>
+          <textarea class="form-textarea" placeholder="Tell us about your project, question, or idea…"></textarea>
+        </div>
+        <button class="form-submit" onclick="handleEnquiry(event)">Send Message →</button>
+        <p class="form-note">No spam. Your data stays private.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===== FOOTER ===== -->
 <footer>
+  <div class="footer-glow"></div>
   <div class="container">
-    <div class="footer-inner">
-      <a href="/" class="footer-logo">
-        <img src="/static/mukku_logo.png" alt="Mukku AI" onerror="this.style.display='none'" />
-        <span class="nav-logo-text">Mukku AI</span>
-      </a>
-      <ul class="footer-links">
-        <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#features">Features</a></li>
-        <li><a href="#platforms">Platforms</a></li>
+    <div class="footer-top">
+      <!-- Brand column -->
+      <div class="footer-brand">
+        <a href="/" class="footer-brand-logo">
+          <img src="/static/mukku_logo.png" alt="Mukku AI" onerror="this.style.display='none'" />
+          <span class="footer-brand-name">Mukku AI Studio</span>
+        </a>
+        <p class="footer-brand-tagline">The creator platform that turns your ideas into fully produced videos — script, visuals, voice and music, all automated.</p>
+        <a href="/studio" class="footer-studio-btn">
+          <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M5 3.5v9l7-4.5z"/></svg>
+          Open Studio
+        </a>
+      </div>
+
+      <!-- Link columns -->
+      <div class="footer-cols">
+        <div class="footer-col">
+          <div class="footer-col-title">Studio</div>
+          <ul>
+            <li><a href="/studio">Create Video</a></li>
+            <li><a href="/studio">My Videos</a></li>
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#your-media">Upload Media</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Platform</div>
+          <ul>
+            <li><a href="#platforms">YouTube</a></li>
+            <li><a href="#platforms">TikTok</a></li>
+            <li><a href="#platforms">Instagram Reels</a></li>
+            <li><a href="#platforms">LinkedIn</a></li>
+            <li><a href="#platforms">YouTube Shorts</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Languages</div>
+          <ul>
+            <li><a href="#languages">English</a></li>
+            <li><a href="#languages">Hindi</a></li>
+            <li><a href="#languages">Bengali</a></li>
+            <li><a href="#languages">Tamil</a></li>
+            <li><a href="#languages">+ 8 more</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Company</div>
+          <ul>
+            <li><a href="#contact">Contact Us</a></li>
+            <li><a href="#contact">Partnerships</a></li>
+            <li><a href="#contact">Feedback</a></li>
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Use</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer bottom bar -->
+    <div class="footer-bottom">
+      <span class="footer-copy">© 2026 Mukku AI Studio. All rights reserved.</span>
+      <ul class="footer-bottom-links">
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#contact">Contact</a></li>
         <li><a href="/studio">Studio</a></li>
       </ul>
-      <span class="footer-copy">© 2025 Mukku AI. All rights reserved.</span>
     </div>
   </div>
 </footer>
@@ -2135,6 +2611,47 @@
     });
   });
 })();
+
+/* ── Enquiry Form ── */
+async function handleEnquiry(e) {
+  e.preventDefault();
+  const btn = e.target;
+  const form = btn.closest('.contact-form');
+  const nameEl  = form.querySelector('input[type=text]');
+  const emailEl = form.querySelector('input[type=email]');
+  const typeEl  = form.querySelector('select');
+  const msgEl   = form.querySelector('textarea');
+  const name    = nameEl.value.trim();
+  const email   = emailEl.value.trim();
+  const type    = typeEl.value;
+  const message = msgEl.value.trim();
+
+  if (!name || !email || !message) {
+    btn.textContent = '⚠ Please fill all required fields';
+    setTimeout(() => { btn.textContent = 'Send Message →'; }, 2500);
+    return;
+  }
+
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/enquiry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, type, message }),
+    });
+    if (res.ok) {
+      btn.textContent = '✓ Message sent — we\'ll reply within 24h!';
+      btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+      [nameEl, emailEl, typeEl, msgEl].forEach(el => { el.value = ''; });
+    } else { throw new Error(); }
+  } catch {
+    btn.textContent = '✗ Failed — please email us directly';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = 'Send Message →'; btn.style.background = ''; }, 3500);
+  }
+}
 </script>
 
 </body>
