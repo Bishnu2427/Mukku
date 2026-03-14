@@ -3,6 +3,7 @@
 import logging
 import traceback
 import concurrent.futures
+from pathlib import Path
 
 from agents.prompt_agent        import understand_prompt
 from agents.script_agent        import generate_script
@@ -25,12 +26,21 @@ _SCENE_CAP = [
 ]
 
 
-def run_pipeline(project_id: str, prompt: str, settings: dict | None = None) -> None:
+def run_pipeline(project_id: str, prompt: str, settings: dict | None = None, user_media: list | None = None) -> None:
     """Run all pipeline stages. Settings from the UI always win over LLM guesses."""
     if settings is None:
         settings = {}
 
+    user_media = user_media or []
+    _IMG_EXT = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
+    _VID_EXT = {'.mp4', '.mov', '.webm', '.avi', '.mkv'}
+    user_images = [p for p in user_media if Path(p).suffix.lower() in _IMG_EXT]
+    user_videos = [p for p in user_media if Path(p).suffix.lower() in _VID_EXT]
+
     logger.info("Pipeline started — project: %s  settings: %s", project_id, settings)
+    if user_media:
+        logger.info("User media — %d image(s): %s  |  %d video(s): %s",
+                    len(user_images), user_images, len(user_videos), user_videos)
 
     try:
         # ── Stage 1: Analyze prompt ───────────────────────────────────────────
@@ -74,11 +84,16 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None) -> 
             logger.info("Music generation started in background.")
 
         # ── Stage 4: Images (parallel) ────────────────────────────────────────
-        _set_stage(project_id, "generating_images", 37,
-                   {"step_detail": f"Generating {n} images in parallel…"})
+        detail = f"Generating {n} images"
+        if user_images:
+            detail += f" ({len(user_images)} from your uploads)"
+        _set_stage(project_id, "generating_images", 37, {"step_detail": detail + "…"})
         image_paths: list[str | None] = [None] * n
 
         def _gen_image(idx: int, scene: dict):
+            if idx < len(user_images):
+                path = _prepare_user_image(user_images[idx], project_id, idx + 1, ar)
+                return idx, path
             vp = scene.get("visual_prompt", f"professional scene {idx + 1}")
             return idx, generate_image(vp, project_id, idx + 1,
                                        image_style=img_style, aspect_ratio=ar)
@@ -105,6 +120,10 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None) -> 
         clip_paths: list[str | None] = [None] * n
 
         def _gen_clip(idx: int, scene: dict, img_path: str | None):
+            if idx < len(user_videos):
+                scene_dur = int(scene.get("duration", max(5, duration // n)))
+                path = _prepare_user_video(user_videos[idx], project_id, idx + 1, ar, scene_dur)
+                return idx, path
             if not img_path:
                 return idx, None
             vp        = scene.get("visual_prompt", f"professional scene {idx + 1}")
@@ -200,6 +219,52 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None) -> 
             "progress":     0,
             "error":        err,
         })
+
+
+def _prepare_user_image(src: str, project_id: str, scene_num: int, aspect_ratio: str) -> str | None:
+    """Copy + resize a user-uploaded image to the images directory."""
+    try:
+        from PIL import Image as _PILImage
+        ar_map = {"16:9": (1024, 576), "9:16": (576, 1024), "1:1": (768, 768)}
+        w, h   = ar_map.get(aspect_ratio, (1024, 576))
+        img    = _PILImage.open(src).convert("RGB")
+        img    = img.resize((w, h), _PILImage.LANCZOS)
+        dest   = Path(src).parent.parent.parent / "media" / "images" / f"{project_id}_scene{scene_num:02d}.jpg"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        img.save(str(dest), "JPEG", quality=92)
+        logger.info("User image prepared: %s", dest)
+        return str(dest)
+    except Exception as exc:
+        logger.warning("Failed to prepare user image %s: %s", src, exc)
+        return None
+
+
+def _prepare_user_video(src: str, project_id: str, scene_num: int, aspect_ratio: str, duration: int) -> str | None:
+    """Re-encode a user-uploaded video clip to match pipeline format."""
+    import subprocess as _sp
+    try:
+        from imageio_ffmpeg import get_ffmpeg_exe
+        ff = get_ffmpeg_exe()
+    except Exception:
+        ff = "ffmpeg"
+    try:
+        ar_map = {"16:9": "1024:576", "9:16": "576:1024", "1:1": "768:768"}
+        scale  = ar_map.get(aspect_ratio, "1024:576")
+        dest   = Path(src).parent.parent.parent / "media" / "clips" / f"{project_id}_scene{scene_num:02d}.mp4"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        cmd = [ff, "-y", "-i", src, "-t", str(duration),
+               "-vf", f"scale={scale}:force_original_aspect_ratio=decrease,pad={scale}:(ow-iw)/2:(oh-ih)/2",
+               "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+               "-an", str(dest)]
+        r = _sp.run(cmd, capture_output=True, timeout=120)
+        if r.returncode == 0:
+            logger.info("User video prepared: %s", dest)
+            return str(dest)
+        logger.warning("ffmpeg user video re-encode failed: %s", r.stderr.decode())
+        return None
+    except Exception as exc:
+        logger.warning("Failed to prepare user video %s: %s", src, exc)
+        return None
 
 
 def _set_stage(project_id: str, step: str, progress: int, extra: dict | None = None) -> None:

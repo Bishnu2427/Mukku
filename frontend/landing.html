@@ -1,0 +1,2141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <title>Mukku AI Studio — Text to Viral MP4 Video in Seconds</title>
+  <meta name="description" content="Mukku AI Studio converts any text prompt into a fully produced MP4 video using an 8-stage AI pipeline. Supports 12 languages, 7 platform presets, and custom media uploads." />
+  <meta name="keywords" content="AI video generator, text to video AI, MP4 from text, Leonardo AI, Kling AI, Suno AI, Indian language video, YouTube Shorts generator, AI studio" />
+  <link rel="canonical" href="https://mukku.ai/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://mukku.ai/" />
+  <meta property="og:title" content="Mukku AI Studio — Text to Viral MP4 Video" />
+  <meta property="og:description" content="8-stage AI pipeline. 12 languages. 7 platform presets. Just type your idea — get a produced video." />
+  <meta property="og:image" content="https://mukku.ai/static/og-cover.png" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Mukku AI Studio — Text to Viral MP4 Video" />
+  <meta name="twitter:description" content="8-stage AI pipeline. 12 languages. 7 platform presets. Just type your idea — get a produced video." />
+  <meta name="twitter:image" content="https://mukku.ai/static/og-cover.png" />
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Mukku AI Studio",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Web",
+    "description": "Convert text prompts into fully produced MP4 videos using an 8-stage AI pipeline supporting 12 languages and 7 platform presets.",
+    "url": "https://mukku.ai/",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": [
+      "8-stage AI video pipeline",
+      "12 language support including Indian languages",
+      "7 platform presets",
+      "Custom media upload",
+      "Leonardo.ai image generation",
+      "Kling.ai clip animation",
+      "Suno AI music generation"
+    ]
+  }
+  </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0E0C14;
+      --bg-section:   #141120;
+      --card-bg:      #1a1726;
+      --purple:       #7c3aed;
+      --purple-light: #a78bfa;
+      --blue:         #3b82f6;
+      --pink:         #ec4899;
+      --cyan:         #22d3ee;
+      --green:        #10b981;
+      --orange:       #f59e0b;
+      --glass-bg:     rgba(255,255,255,0.04);
+      --glass-bg-hov: rgba(255,255,255,0.07);
+      --glass-border: rgba(255,255,255,0.06);
+      --glass-border-hov: rgba(255,255,255,0.12);
+      --text-primary:   #f1f0f5;
+      --text-secondary: rgba(241,240,245,0.55);
+      --text-muted:     rgba(241,240,245,0.3);
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: var(--purple) transparent;
+    }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 2px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ===== THREE.JS CANVAS ===== */
+    #neural-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ===== LAYOUT ===== */
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section {
+      padding: 120px 0;
+      position: relative;
+    }
+
+    .section-alt {
+      background: var(--bg-section);
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 80px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--purple-light);
+      margin-bottom: 1.2rem;
+      opacity: 0.9;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--text-primary);
+    }
+
+    .section-subtitle {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--purple-light) 0%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ===== REVEAL ===== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1), transform 0.75s cubic-bezier(0.16,1,0.3,1);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ===== NAV ===== */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 0 2.5rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(14,12,20,0.6);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.35s ease, background 0.35s ease;
+    }
+
+    nav.scrolled {
+      background: rgba(14,12,20,0.88);
+      border-color: var(--glass-border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-logo img { height: 30px; width: auto; }
+
+    .nav-logo-text {
+      background: linear-gradient(135deg, var(--purple-light), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2.2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1.3rem;
+      background: linear-gradient(135deg, var(--purple), #5b21b6);
+      border-radius: 100px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: -0.01em;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px rgba(124,58,237,0.3);
+    }
+
+    /* ===== HERO ===== */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+      padding-top: 64px;
+      overflow: hidden;
+    }
+
+    .hero-orb-1 {
+      position: absolute;
+      top: -20%;
+      left: -15%;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(124,58,237,0.10) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-orb-2 {
+      position: absolute;
+      bottom: -20%;
+      right: -15%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 5rem 2rem 4rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.38rem 1rem;
+      background: rgba(124,58,237,0.08);
+      border: 1px solid rgba(124,58,237,0.22);
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--purple-light);
+      margin-bottom: 2.2rem;
+    }
+
+    .hero-h1 {
+      font-size: clamp(3.5rem, 8vw, 6.5rem);
+      font-weight: 700;
+      line-height: 1.0;
+      margin-bottom: 1.6rem;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-h1 .line-2 {
+      background: linear-gradient(135deg, var(--purple-light) 0%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: block;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 520px;
+      margin: 0 auto 2.6rem;
+      line-height: 1.75;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 0.85rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3.5rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.9rem;
+      background: linear-gradient(135deg, var(--purple), #5b21b6);
+      border-radius: 10px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 0.92rem;
+      letter-spacing: -0.01em;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 40px rgba(124,58,237,0.32);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.9rem;
+      background: transparent;
+      border: 1px solid var(--glass-border-hov);
+      border-radius: 10px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 0.92rem;
+      letter-spacing: -0.01em;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+    .btn-ghost:hover {
+      background: var(--glass-bg);
+      border-color: rgba(255,255,255,0.18);
+      color: var(--text-primary);
+    }
+
+    /* ===== MOCK STUDIO CARD ===== */
+    .studio-mock {
+      max-width: 620px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(124,58,237,0.08), 0 40px 80px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    .studio-mock::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,58,237,0.5), rgba(34,211,238,0.3), transparent);
+    }
+
+    .mock-titlebar {
+      padding: 0.85rem 1.2rem;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .mock-dots {
+      display: flex;
+      gap: 0.38rem;
+    }
+
+    .mock-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .mock-dot.red   { background: #ff5f57; }
+    .mock-dot.amber { background: #febc2e; }
+    .mock-dot.green { background: #28c840; }
+
+    .mock-titlebar-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    .mock-platform-row {
+      padding: 1rem 1.4rem 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .mock-platform-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-right: 0.3rem;
+    }
+
+    .platform-dot-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 500;
+      cursor: default;
+      border: 1px solid transparent;
+    }
+
+    .platform-dot-btn.active {
+      background: rgba(124,58,237,0.12);
+      border-color: rgba(124,58,237,0.25);
+      color: var(--purple-light);
+    }
+
+    .platform-dot-btn.inactive {
+      background: rgba(255,255,255,0.03);
+      border-color: rgba(255,255,255,0.06);
+      color: var(--text-muted);
+    }
+
+    .pdot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .mock-textarea-wrap {
+      padding: 0.5rem 1.4rem 1rem;
+    }
+
+    .mock-textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      line-height: 1.65;
+      min-height: 80px;
+      resize: none;
+      outline: none;
+    }
+
+    .mock-textarea-placeholder {
+      padding: 0.9rem 1rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      font-size: 0.88rem;
+      color: rgba(241,240,245,0.75);
+      line-height: 1.65;
+      min-height: 80px;
+      position: relative;
+    }
+
+    .typing-cursor-mock {
+      display: inline-block;
+      width: 2px;
+      height: 0.9em;
+      background: var(--cyan);
+      margin-left: 1px;
+      vertical-align: text-bottom;
+      animation: blink-cursor 0.9s step-end infinite;
+    }
+
+    @keyframes blink-cursor {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .mock-settings-row {
+      padding: 0 1.4rem 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .setting-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.28rem 0.65rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .setting-pill svg {
+      width: 10px;
+      height: 10px;
+      opacity: 0.6;
+    }
+
+    .mock-footer {
+      padding: 0.9rem 1.4rem;
+      background: rgba(255,255,255,0.02);
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .mock-chars {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .mock-generate-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.52rem 1.2rem;
+      background: linear-gradient(135deg, var(--purple), #5b21b6);
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      box-shadow: 0 0 20px rgba(124,58,237,0.22);
+      cursor: default;
+    }
+
+    .mock-generate-btn .btn-pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.7);
+      animation: pulse-glow 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.4); opacity: 1; }
+    }
+
+    /* ===== TRUSTED BY ===== */
+    #trusted {
+      padding: 48px 0;
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--glass-border);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .trusted-label {
+      text-align: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 1.6rem;
+    }
+
+    .platform-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+
+    .platform-strip-item {
+      padding: 0.5rem 2rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: -0.01em;
+      transition: color 0.2s;
+      position: relative;
+    }
+
+    .platform-strip-item:not(:last-child)::after {
+      content: '·';
+      position: absolute;
+      right: -2px;
+      color: rgba(255,255,255,0.1);
+    }
+
+    .platform-strip-item:hover { color: var(--text-secondary); }
+
+    /* ===== STATS BAR ===== */
+    #stats {
+      padding: 80px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      position: relative;
+    }
+
+    .stats-row::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-top: 1px solid var(--glass-border);
+      border-bottom: 1px solid var(--glass-border);
+      pointer-events: none;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+      position: relative;
+    }
+
+    .stat-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 20%;
+      bottom: 20%;
+      width: 1px;
+      background: var(--glass-border);
+    }
+
+    .stat-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--purple-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    /* ===== HOW IT WORKS — ALTERNATING ===== */
+    #how-it-works {
+      background: var(--bg-section);
+    }
+
+    .hiw-section-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 400px;
+      background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(124,58,237,0.10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hiw-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 100px;
+    }
+
+    .hiw-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .hiw-row.reverse .hiw-text { order: 2; }
+    .hiw-row.reverse .hiw-visual { order: 1; }
+
+    .hiw-stage-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.28rem 0.7rem;
+      background: rgba(124,58,237,0.1);
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--purple-light);
+      margin-bottom: 1.2rem;
+    }
+
+    .hiw-h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.9rem;
+      letter-spacing: -0.03em;
+    }
+
+    .hiw-desc {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin-bottom: 1.4rem;
+    }
+
+    .hiw-powered {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .hiw-powered span {
+      color: var(--purple-light);
+    }
+
+    /* Visual Cards for HIW */
+    .hiw-visual-card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .hiw-visual-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,58,237,0.4), transparent);
+    }
+
+    /* Script visual */
+    .script-lines { display: flex; flex-direction: column; gap: 0.55rem; }
+
+    .script-line {
+      height: 10px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .script-line.w-full { width: 100%; }
+    .script-line.w-4-5 { width: 80%; }
+    .script-line.w-3-5 { width: 60%; }
+    .script-line.w-2-5 { width: 40%; }
+    .script-line.accent { background: rgba(124,58,237,0.25); }
+
+    .script-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .script-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+    }
+
+    .script-file-label {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .script-cursor-line {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .script-cursor {
+      width: 2px;
+      height: 14px;
+      background: var(--cyan);
+      animation: blink-cursor 0.9s step-end infinite;
+      flex-shrink: 0;
+    }
+
+    /* Scene grid visual */
+    .scene-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .scene-card {
+      border-radius: 10px;
+      height: 90px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scene-card:nth-child(1) { background: linear-gradient(135deg, rgba(124,58,237,0.3), rgba(59,130,246,0.2)); }
+    .scene-card:nth-child(2) { background: linear-gradient(135deg, rgba(236,72,153,0.25), rgba(124,58,237,0.2)); }
+    .scene-card:nth-child(3) { background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(16,185,129,0.2)); }
+    .scene-card:nth-child(4) { background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(236,72,153,0.2)); }
+
+    .play-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .play-icon::after {
+      content: '';
+      border-style: solid;
+      border-width: 5px 0 5px 9px;
+      border-color: transparent transparent transparent rgba(255,255,255,0.85);
+      margin-left: 2px;
+    }
+
+    /* Waveform visual */
+    .waveform-wrap {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 60px;
+      margin-bottom: 1.4rem;
+    }
+
+    .wave-bar {
+      flex: 1;
+      border-radius: 2px;
+      background: rgba(124,58,237,0.4);
+      animation: wave-anim 1.2s ease-in-out infinite;
+    }
+
+    @keyframes wave-anim {
+      0%, 100% { transform: scaleY(0.3); }
+      50% { transform: scaleY(1); }
+    }
+
+    .wave-bar:nth-child(1)  { height: 40%; animation-delay: 0s; }
+    .wave-bar:nth-child(2)  { height: 70%; animation-delay: 0.1s; }
+    .wave-bar:nth-child(3)  { height: 90%; animation-delay: 0.2s; }
+    .wave-bar:nth-child(4)  { height: 60%; animation-delay: 0.15s; }
+    .wave-bar:nth-child(5)  { height: 100%; animation-delay: 0.05s; }
+    .wave-bar:nth-child(6)  { height: 80%; animation-delay: 0.25s; }
+    .wave-bar:nth-child(7)  { height: 50%; animation-delay: 0.3s; }
+    .wave-bar:nth-child(8)  { height: 85%; animation-delay: 0.1s; }
+    .wave-bar:nth-child(9)  { height: 65%; animation-delay: 0.2s; }
+    .wave-bar:nth-child(10) { height: 45%; animation-delay: 0.0s; }
+    .wave-bar:nth-child(11) { height: 75%; animation-delay: 0.15s; }
+    .wave-bar:nth-child(12) { height: 55%; animation-delay: 0.25s; }
+    .wave-bar:nth-child(13) { height: 35%; animation-delay: 0.05s; }
+    .wave-bar:nth-child(14) { height: 80%; animation-delay: 0.3s; }
+    .wave-bar:nth-child(15) { height: 95%; animation-delay: 0.1s; }
+    .wave-bar:nth-child(16) { height: 60%; animation-delay: 0.2s; }
+    .wave-bar:nth-child(17) { height: 40%; animation-delay: 0.15s; }
+    .wave-bar:nth-child(18) { height: 70%; animation-delay: 0.05s; }
+    .wave-bar:nth-child(19) { height: 85%; animation-delay: 0.25s; }
+    .wave-bar:nth-child(20) { height: 50%; animation-delay: 0.0s; }
+
+    .music-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.8rem;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 100px;
+      font-size: 0.72rem;
+      color: #34d399;
+      font-weight: 500;
+    }
+
+    .music-note { font-size: 0.85rem; }
+
+    /* Video player visual */
+    .mock-player {
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .player-screen {
+      height: 120px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(59,130,246,0.15));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .player-big-play {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .player-big-play::after {
+      content: '';
+      border-style: solid;
+      border-width: 8px 0 8px 14px;
+      border-color: transparent transparent transparent rgba(255,255,255,0.9);
+      margin-left: 3px;
+    }
+
+    .player-controls {
+      padding: 0.9rem 1rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--glass-border);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+    }
+
+    .player-progress-track {
+      height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      margin-bottom: 0.6rem;
+      overflow: hidden;
+    }
+
+    .player-progress-fill {
+      width: 38%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--purple), var(--cyan));
+      border-radius: 2px;
+    }
+
+    .player-time-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    /* ===== FEATURES BENTO ===== */
+    #features {
+      background: var(--bg);
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 2rem;
+      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s, box-shadow 0.3s;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--glass-border-hov);
+      box-shadow: 0 0 40px rgba(124,58,237,0.08), 0 20px 50px rgba(0,0,0,0.3);
+    }
+
+    .feature-card.wide {
+      grid-column: span 2;
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(124,58,237,0.1);
+      border: 1px solid rgba(124,58,237,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .feature-title {
+      font-size: 1.02rem;
+      font-weight: 600;
+      margin-bottom: 0.55rem;
+      letter-spacing: -0.02em;
+    }
+
+    .feature-desc {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .feature-card.wide .feature-content-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .feature-studio-mockup {
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+    }
+
+    .fsm-bar {
+      padding: 0.5rem 0.8rem;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      gap: 0.3rem;
+    }
+
+    .fsm-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .fsm-dot.r { background: rgba(255,95,87,0.5); }
+    .fsm-dot.a { background: rgba(254,188,46,0.5); }
+    .fsm-dot.g { background: rgba(40,200,64,0.5); }
+
+    .fsm-body {
+      padding: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .fsm-line {
+      height: 7px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .fsm-line.p { background: rgba(124,58,237,0.25); width: 60%; }
+    .fsm-line.c { background: rgba(34,211,238,0.2); width: 80%; }
+
+    /* ===== PLATFORMS ===== */
+    #platforms {
+      background: var(--bg-section);
+    }
+
+    .platforms-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .platform-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.7rem 1.4rem;
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 100px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.25s;
+      cursor: default;
+    }
+
+    .platform-pill:hover {
+      border-color: var(--glass-border-hov);
+      color: var(--text-primary);
+      background: rgba(255,255,255,0.06);
+    }
+
+    .platform-pill .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .platform-pill .pill-format {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      padding: 0.15rem 0.45rem;
+      background: rgba(255,255,255,0.04);
+      border-radius: 4px;
+    }
+
+    /* ===== LANGUAGES ===== */
+    #languages {
+      background: var(--bg);
+    }
+
+    .languages-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .lang-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-top: 1.8rem;
+    }
+
+    .lang-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.9rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      transition: all 0.3s;
+      cursor: default;
+    }
+
+    .lang-chip.active {
+      background: rgba(124,58,237,0.12);
+      border-color: rgba(124,58,237,0.3);
+      color: var(--purple-light);
+    }
+
+    .lang-chip .native-script {
+      font-size: 0.78rem;
+      opacity: 0.75;
+    }
+
+    /* Orbital visual */
+    .orbital-wrap {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      margin: 0 auto;
+    }
+
+    .orbital-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      z-index: 2;
+    }
+
+    .orbit-ring {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .orbit-ring-1 { width: 160px; height: 160px; animation: spin-slow 12s linear infinite; }
+    .orbit-ring-2 { width: 260px; height: 260px; animation: spin-slow 20s linear infinite reverse; }
+
+    @keyframes spin-slow { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+    .orbit-label {
+      position: absolute;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .orbit-label-1  { top: 4%;  left: 35%; }
+    .orbit-label-2  { top: 25%; right: 2%; }
+    .orbit-label-3  { bottom: 20%; right: 3%; }
+    .orbit-label-4  { bottom: 4%; left: 35%; }
+    .orbit-label-5  { bottom: 20%; left: 2%; }
+    .orbit-label-6  { top: 25%; left: 2%; }
+    .orbit-label-7  { top: 14%; right: 14%; }
+    .orbit-label-8  { bottom: 14%; left: 14%; }
+
+    /* ===== USER MEDIA ===== */
+    #user-media {
+      background: var(--bg-section);
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .benefit-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.6rem;
+      margin-top: 2rem;
+    }
+
+    .benefit-item {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .benefit-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: rgba(124,58,237,0.1);
+      border: 1px solid rgba(124,58,237,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .benefit-text h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .benefit-text p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    /* Upload mock */
+    .upload-mock {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .upload-mock-header {
+      padding: 1rem 1.2rem;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--glass-border);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .upload-drop-zone {
+      margin: 1.2rem;
+      border: 1px dashed rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+
+    .upload-icon {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-drop-zone p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .upload-drop-zone strong {
+      color: var(--purple-light);
+      font-weight: 600;
+    }
+
+    .upload-attach-row {
+      padding: 0 1.2rem 1.2rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .attach-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.3rem 0.7rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* ===== CTA ===== */
+    #cta {
+      padding: 140px 0;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .cta-glow {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 800px;
+      height: 400px;
+      background: radial-gradient(ellipse, rgba(124,58,237,0.15) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .cta-h2 {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      margin-bottom: 1.4rem;
+      line-height: 1.05;
+    }
+
+    .cta-sub {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 2.6rem;
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--glass-border);
+      position: relative;
+      z-index: 1;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .footer-logo img { height: 24px; }
+
+    .footer-links {
+      display: flex;
+      gap: 1.8rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--text-secondary); }
+
+    .footer-copy {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .hiw-row { grid-template-columns: 1fr; gap: 40px; }
+      .hiw-row.reverse .hiw-text { order: 0; }
+      .hiw-row.reverse .hiw-visual { order: 0; }
+      .bento-grid { grid-template-columns: 1fr; }
+      .feature-card.wide { grid-column: span 1; }
+      .feature-card.wide .feature-content-row { grid-template-columns: 1fr; }
+      .languages-grid { grid-template-columns: 1fr; }
+      .media-grid { grid-template-columns: 1fr; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
+    }
+
+    @media (max-width: 540px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .hero-h1 { letter-spacing: -0.02em; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="neural-canvas"></canvas>
+
+<!-- ===== NAV ===== -->
+<nav id="main-nav">
+  <a href="/" class="nav-logo">
+    <img src="/static/mukku_logo.png" alt="Mukku AI" onerror="this.style.display='none'" />
+    <span class="nav-logo-text">Mukku AI</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how-it-works">How It Works</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#platforms">Platforms</a></li>
+    <li><a href="#languages">Languages</a></li>
+  </ul>
+  <a href="/studio" class="nav-cta">Open Studio →</a>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section id="hero">
+  <div class="hero-orb-1"></div>
+  <div class="hero-orb-2"></div>
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-badge">✦ Next-Gen Creator Platform</div>
+      <h1 class="hero-h1">
+        Turn Any Idea Into
+        <span class="line-2">A Viral Video</span>
+      </h1>
+      <p class="hero-subtitle">Type a prompt. Choose your platform and language. Mukku's 8-stage AI pipeline writes the script, generates scenes, adds voiceover, and delivers a production-ready MP4 — in minutes.</p>
+      <div class="hero-buttons">
+        <a href="/studio" class="btn-primary">Start Creating →</a>
+        <a href="#how-it-works" class="btn-ghost">See How It Works</a>
+      </div>
+
+      <!-- Mock Studio Card -->
+      <div class="studio-mock reveal">
+        <div class="mock-titlebar">
+          <div class="mock-dots">
+            <div class="mock-dot red"></div>
+            <div class="mock-dot amber"></div>
+            <div class="mock-dot green"></div>
+          </div>
+          <span class="mock-titlebar-label">Mukku AI Studio — New Video</span>
+        </div>
+        <div class="mock-platform-row">
+          <span class="mock-platform-label">Platform</span>
+          <div class="platform-dot-btn active"><div class="pdot" style="background:#ff0000;"></div>YouTube</div>
+          <div class="platform-dot-btn inactive"><div class="pdot" style="background:#69c9d0;"></div>TikTok</div>
+          <div class="platform-dot-btn inactive"><div class="pdot" style="background:#e1306c;"></div>Instagram</div>
+          <div class="platform-dot-btn inactive"><div class="pdot" style="background:#0077b5;"></div>LinkedIn</div>
+        </div>
+        <div class="mock-textarea-wrap">
+          <div class="mock-textarea-placeholder">
+            Create a 60-second motivational reel for fitness creators — high-energy, cinematic shots, with an inspiring voiceover and upbeat background music.<span class="typing-cursor-mock"></span>
+          </div>
+        </div>
+        <div class="mock-settings-row">
+          <div class="setting-pill">
+            <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            1 min
+          </div>
+          <div class="setting-pill">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M8 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            English
+          </div>
+          <div class="setting-pill">
+            <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+            Photorealistic
+          </div>
+        </div>
+        <div class="mock-footer">
+          <span class="mock-chars">148 / 500 characters</span>
+          <div class="mock-generate-btn">
+            <div class="btn-pulse"></div>
+            Generate Video
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TRUSTED BY ===== -->
+<section id="trusted">
+  <div class="container">
+    <p class="trusted-label">Powering creators across platforms</p>
+    <div class="platform-strip">
+      <div class="platform-strip-item">YouTube</div>
+      <div class="platform-strip-item">TikTok</div>
+      <div class="platform-strip-item">Instagram</div>
+      <div class="platform-strip-item">LinkedIn</div>
+      <div class="platform-strip-item">X</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== STATS ===== -->
+<section id="stats">
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat-item reveal">
+        <div class="stat-number" data-target="8" data-suffix="">0</div>
+        <div class="stat-label">AI Pipeline Stages</div>
+      </div>
+      <div class="stat-item reveal" style="transition-delay:0.1s">
+        <div class="stat-number" data-target="12" data-suffix="">0</div>
+        <div class="stat-label">Languages Supported</div>
+      </div>
+      <div class="stat-item reveal" style="transition-delay:0.2s">
+        <div class="stat-number" data-target="7" data-suffix="">0</div>
+        <div class="stat-label">Platform Presets</div>
+      </div>
+      <div class="stat-item reveal" style="transition-delay:0.3s">
+        <div class="stat-number" data-target="300" data-suffix="s">0</div>
+        <div class="stat-label">Max Video Length</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== HOW IT WORKS ===== -->
+<section id="how-it-works" class="section">
+  <div class="hiw-section-overlay"></div>
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">The Pipeline</p>
+      <h2 class="section-title">How It Works</h2>
+      <p class="section-subtitle">Eight intelligent stages collaborate to transform your text idea into a complete, ready-to-publish video.</p>
+    </div>
+
+    <div class="hiw-rows">
+      <!-- Row 1: text left, visual right -->
+      <div class="hiw-row reveal">
+        <div class="hiw-text">
+          <div class="hiw-stage-badge">Stage 1–2</div>
+          <h3 class="hiw-h3">Script &amp; Scene Writing</h3>
+          <p class="hiw-desc">Mukku reads your prompt and crafts a structured multi-scene script complete with shot directions, dialogue, and mood cues — all optimised for your chosen platform's format and duration.</p>
+          <div class="hiw-powered">Powered by <span>GPT-4o · Ollama</span></div>
+        </div>
+        <div class="hiw-visual">
+          <div class="hiw-visual-card">
+            <div class="script-header">
+              <div class="script-icon">📄</div>
+              <span class="script-file-label">script_draft.json</span>
+            </div>
+            <div class="script-lines">
+              <div class="script-line accent w-3-5"></div>
+              <div class="script-line w-full"></div>
+              <div class="script-line w-4-5"></div>
+              <div class="script-cursor-line">
+                <div class="script-line w-3-5" style="flex:1"></div>
+                <div class="script-cursor"></div>
+              </div>
+              <div class="script-line w-full" style="opacity:0.4"></div>
+              <div class="script-line w-2-5" style="opacity:0.2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: visual left, text right -->
+      <div class="hiw-row reverse reveal">
+        <div class="hiw-text">
+          <div class="hiw-stage-badge">Stage 3–4</div>
+          <h3 class="hiw-h3">Image &amp; Clip Generation</h3>
+          <p class="hiw-desc">Each scene is rendered as a photorealistic image by Leonardo.ai, then brought to life as an animated video clip by Kling.ai — producing cinematic motion from a single description.</p>
+          <div class="hiw-powered">Powered by <span>Leonardo.ai · Kling.ai · Pollo.ai</span></div>
+        </div>
+        <div class="hiw-visual">
+          <div class="hiw-visual-card">
+            <div class="scene-grid">
+              <div class="scene-card"><div class="play-icon"></div></div>
+              <div class="scene-card"><div class="play-icon"></div></div>
+              <div class="scene-card"><div class="play-icon"></div></div>
+              <div class="scene-card"><div class="play-icon"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: text left, visual right -->
+      <div class="hiw-row reveal">
+        <div class="hiw-text">
+          <div class="hiw-stage-badge">Stage 5–6</div>
+          <h3 class="hiw-h3">Voiceover &amp; Music</h3>
+          <p class="hiw-desc">A natural-sounding AI voiceover narrates the script in your selected language, while Suno AI composes an original, mood-matched soundtrack — both timed to the visuals automatically.</p>
+          <div class="hiw-powered">Powered by <span>ElevenLabs · Suno AI</span></div>
+        </div>
+        <div class="hiw-visual">
+          <div class="hiw-visual-card">
+            <div class="waveform-wrap">
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+            </div>
+            <div class="music-tag"><span class="music-note">♪</span> Suno AI — Energetic, BPM 128</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4: visual left, text right -->
+      <div class="hiw-row reverse reveal">
+        <div class="hiw-text">
+          <div class="hiw-stage-badge">Stage 7–8</div>
+          <h3 class="hiw-h3">Final Assembly</h3>
+          <p class="hiw-desc">MoviePy assembles all clips, overlays captions in the correct language, mixes audio tracks, and renders the final MP4 at your platform's optimal resolution and aspect ratio — ready to download and post.</p>
+          <div class="hiw-powered">Powered by <span>MoviePy · FFmpeg</span></div>
+        </div>
+        <div class="hiw-visual">
+          <div class="hiw-visual-card">
+            <div class="mock-player">
+              <div class="player-screen">
+                <div class="player-big-play"></div>
+              </div>
+              <div class="player-controls">
+                <div class="player-progress-track">
+                  <div class="player-progress-fill"></div>
+                </div>
+                <div class="player-time-row">
+                  <span>0:23</span>
+                  <span>1:00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FEATURES BENTO ===== -->
+<section id="features" class="section">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">Capabilities</p>
+      <h2 class="section-title">Everything You Need</h2>
+      <p class="section-subtitle">A complete creative platform — from idea to final cut.</p>
+    </div>
+
+    <div class="bento-grid">
+      <!-- Wide card: Creator Studio -->
+      <div class="feature-card wide reveal">
+        <div class="feature-content-row">
+          <div>
+            <div class="feature-icon">🎬</div>
+            <h3 class="feature-title">Creator Studio</h3>
+            <p class="feature-desc">A full-featured web interface to write your prompt, select language and platform, upload your own media, and watch your video build stage by stage with live progress indicators.</p>
+          </div>
+          <div class="feature-studio-mockup">
+            <div class="fsm-bar">
+              <div class="fsm-dot r"></div>
+              <div class="fsm-dot a"></div>
+              <div class="fsm-dot g"></div>
+            </div>
+            <div class="fsm-body">
+              <div class="fsm-line p"></div>
+              <div class="fsm-line" style="width:90%"></div>
+              <div class="fsm-line c"></div>
+              <div class="fsm-line" style="width:70%"></div>
+              <div class="fsm-line" style="width:40%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Platform Presets -->
+      <div class="feature-card reveal" style="transition-delay:0.1s">
+        <div class="feature-icon">📱</div>
+        <h3 class="feature-title">Platform Presets</h3>
+        <p class="feature-desc">One-click aspect ratio, resolution, and caption style adjustments for YouTube, TikTok, Instagram, LinkedIn, X, Pinterest, and more.</p>
+      </div>
+
+      <!-- User Media Upload -->
+      <div class="feature-card reveal" style="transition-delay:0.15s">
+        <div class="feature-icon">📁</div>
+        <h3 class="feature-title">User Media Upload</h3>
+        <p class="feature-desc">Bring your own photos, video clips, or audio. Mukku weaves your assets into the AI-generated pipeline while preserving your brand identity.</p>
+      </div>
+
+      <!-- 12 Languages -->
+      <div class="feature-card reveal" style="transition-delay:0.2s">
+        <div class="feature-icon">🌐</div>
+        <h3 class="feature-title">12 Languages</h3>
+        <p class="feature-desc">Full script, voiceover, and caption support in English, Hindi, Bengali, Tamil, Telugu, Kannada, Gujarati, Marathi, Punjabi, Malayalam, Urdu, and more.</p>
+      </div>
+
+      <!-- Live Progress -->
+      <div class="feature-card reveal" style="transition-delay:0.25s">
+        <div class="feature-icon">⚡</div>
+        <h3 class="feature-title">Live Progress</h3>
+        <p class="feature-desc">A real-time stage tracker shows exactly which AI service is active, with per-stage status updates and estimated completion time.</p>
+      </div>
+
+      <!-- Edit & Remake -->
+      <div class="feature-card reveal" style="transition-delay:0.3s">
+        <div class="feature-icon">✏️</div>
+        <h3 class="feature-title">Edit &amp; Remake</h3>
+        <p class="feature-desc">Not satisfied with a scene? Edit the script, swap an image, or regenerate a single stage without rebuilding the entire video from scratch.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PLATFORMS ===== -->
+<section id="platforms" class="section">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">Platforms</p>
+      <h2 class="section-title">Built for Every Platform</h2>
+      <p class="section-subtitle">Each platform preset automatically configures aspect ratio, resolution, caption position, and optimal video length.</p>
+    </div>
+
+    <div class="platforms-row reveal">
+      <div class="platform-pill">
+        <div class="pill-dot" style="background:#ff0000;"></div>
+        YouTube
+        <span class="pill-format">16:9</span>
+      </div>
+      <div class="platform-pill">
+        <div class="pill-dot" style="background:#69c9d0;"></div>
+        TikTok
+        <span class="pill-format">9:16</span>
+      </div>
+      <div class="platform-pill">
+        <div class="pill-dot" style="background:#e1306c;"></div>
+        Instagram
+        <span class="pill-format">1:1 · 9:16</span>
+      </div>
+      <div class="platform-pill">
+        <div class="pill-dot" style="background:#0077b5;"></div>
+        LinkedIn
+        <span class="pill-format">16:9</span>
+      </div>
+      <div class="platform-pill">
+        <div class="pill-dot" style="background:#1da1f2;"></div>
+        X / Twitter
+        <span class="pill-format">16:9</span>
+      </div>
+      <div class="platform-pill">
+        <div class="pill-dot" style="background:#e60023;"></div>
+        Pinterest
+        <span class="pill-format">2:3</span>
+      </div>
+      <div class="platform-pill">
+        <div class="pill-dot" style="background:#ff9900;"></div>
+        Shorts
+        <span class="pill-format">9:16</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== LANGUAGES ===== -->
+<section id="languages" class="section">
+  <div class="container">
+    <div class="languages-grid">
+      <div class="reveal">
+        <p class="eyebrow">Languages</p>
+        <h2 class="section-title">Create in Your Language</h2>
+        <p class="section-subtitle">Mukku generates scripts, voiceovers, and captions natively in 12 languages — no translation step, no awkward AI phrasing.</p>
+        <div class="lang-chips" id="lang-chips">
+          <div class="lang-chip active" data-lang="English"><span>English</span></div>
+          <div class="lang-chip" data-lang="Hindi"><span>Hindi</span> <span class="native-script">हिंदी</span></div>
+          <div class="lang-chip" data-lang="Bengali"><span>Bengali</span> <span class="native-script">বাংলা</span></div>
+          <div class="lang-chip" data-lang="Tamil"><span>Tamil</span> <span class="native-script">தமிழ்</span></div>
+          <div class="lang-chip" data-lang="Telugu"><span>Telugu</span> <span class="native-script">తెలుగు</span></div>
+          <div class="lang-chip" data-lang="Kannada"><span>Kannada</span> <span class="native-script">ಕನ್ನಡ</span></div>
+          <div class="lang-chip" data-lang="Gujarati"><span>Gujarati</span> <span class="native-script">ગુજરાતી</span></div>
+          <div class="lang-chip" data-lang="Marathi"><span>Marathi</span> <span class="native-script">मराठी</span></div>
+          <div class="lang-chip" data-lang="Punjabi"><span>Punjabi</span> <span class="native-script">ਪੰਜਾਬੀ</span></div>
+          <div class="lang-chip" data-lang="Malayalam"><span>Malayalam</span> <span class="native-script">മലയാളം</span></div>
+          <div class="lang-chip" data-lang="Urdu"><span>Urdu</span> <span class="native-script">اردو</span></div>
+          <div class="lang-chip" data-lang="Odia"><span>Odia</span> <span class="native-script">ଓଡ଼ିଆ</span></div>
+        </div>
+      </div>
+      <div class="reveal" style="transition-delay:0.15s">
+        <div class="orbital-wrap">
+          <div class="orbital-center">🌐</div>
+          <div class="orbit-ring orbit-ring-1"></div>
+          <div class="orbit-ring orbit-ring-2"></div>
+          <div class="orbit-label orbit-label-1">हिंदी</div>
+          <div class="orbit-label orbit-label-2">বাংলা</div>
+          <div class="orbit-label orbit-label-3">தமிழ்</div>
+          <div class="orbit-label orbit-label-4">తెలుగు</div>
+          <div class="orbit-label orbit-label-5">ಕನ್ನಡ</div>
+          <div class="orbit-label orbit-label-6">ગુજ.</div>
+          <div class="orbit-label orbit-label-7">मराठी</div>
+          <div class="orbit-label orbit-label-8">English</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== USER MEDIA ===== -->
+<section id="user-media" class="section">
+  <div class="container">
+    <div class="media-grid">
+      <div class="reveal">
+        <p class="eyebrow">Your Media</p>
+        <h2 class="section-title">Your Media,<br>Your Story</h2>
+        <p class="section-subtitle">Blend your own assets with AI-generated content for videos that are unmistakably yours.</p>
+        <div class="benefit-list">
+          <div class="benefit-item">
+            <div class="benefit-icon">🖼️</div>
+            <div class="benefit-text">
+              <h4>Brand Visuals</h4>
+              <p>Upload your logo, product shots, or brand photography and Mukku integrates them directly into the visual narrative.</p>
+            </div>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon">🎵</div>
+            <div class="benefit-text">
+              <h4>Custom Audio</h4>
+              <p>Bring your own music or voiceover track and Mukku will sync visuals to your audio instead of generating new sound.</p>
+            </div>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon">🎞️</div>
+            <div class="benefit-text">
+              <h4>Existing Clips</h4>
+              <p>Include your own video footage alongside AI-generated clips — Mukku assembles everything into one cohesive cut.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal" style="transition-delay:0.15s">
+        <div class="upload-mock">
+          <div class="upload-mock-header">
+            📁 Media Assets
+          </div>
+          <div class="upload-drop-zone">
+            <div class="upload-icon">⬆️</div>
+            <p><strong>Drag &amp; drop</strong> your files here<br>or click to browse</p>
+          </div>
+          <div class="upload-attach-row">
+            <div class="attach-chip">🖼️ brand_logo.png</div>
+            <div class="attach-chip">🎵 bg_track.mp3</div>
+            <div class="attach-chip">🎞️ intro_clip.mp4</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section id="cta" class="section">
+  <div class="cta-glow"></div>
+  <div class="container" style="text-align:center; position:relative; z-index:1;">
+    <div class="reveal">
+      <p class="eyebrow" style="justify-content:center;">Get Started</p>
+      <h2 class="cta-h2">Ready to Create Something<br><span class="gradient-text">Legendary?</span></h2>
+      <p class="cta-sub">Turn your next idea into a fully produced video — in minutes, not weeks.</p>
+      <a href="/studio" class="btn-primary" style="font-size:1rem; padding:0.95rem 2.4rem;">Open Studio →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <a href="/" class="footer-logo">
+        <img src="/static/mukku_logo.png" alt="Mukku AI" onerror="this.style.display='none'" />
+        <span class="nav-logo-text">Mukku AI</span>
+      </a>
+      <ul class="footer-links">
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#platforms">Platforms</a></li>
+        <li><a href="/studio">Studio</a></li>
+      </ul>
+      <span class="footer-copy">© 2025 Mukku AI. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+/* ── Three.js Neural Network ── */
+(function () {
+  const canvas = document.getElementById('neural-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.z = 80;
+
+  const COUNT = 120;
+  const positions = [];
+  const velocities = [];
+  const particleGeo = new THREE.BufferGeometry();
+  const posArr = new Float32Array(COUNT * 3);
+
+  for (let i = 0; i < COUNT; i++) {
+    const x = (Math.random() - 0.5) * 160;
+    const y = (Math.random() - 0.5) * 120;
+    const z = (Math.random() - 0.5) * 80;
+    positions.push(new THREE.Vector3(x, y, z));
+    velocities.push(new THREE.Vector3(
+      (Math.random() - 0.5) * 0.04,
+      (Math.random() - 0.5) * 0.04,
+      (Math.random() - 0.5) * 0.02
+    ));
+    posArr[i * 3]     = x;
+    posArr[i * 3 + 1] = y;
+    posArr[i * 3 + 2] = z;
+  }
+
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+  const particleMat = new THREE.PointsMaterial({ color: 0xa78bfa, size: 0.5, transparent: true, opacity: 0.4 });
+  const particles = new THREE.Points(particleGeo, particleMat);
+  scene.add(particles);
+
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.06 });
+  let linesMesh = null;
+
+  function buildLines() {
+    if (linesMesh) scene.remove(linesMesh);
+    const lineGeo = new THREE.BufferGeometry();
+    const lineVerts = [];
+    const DIST = 30;
+    for (let i = 0; i < COUNT; i++) {
+      for (let j = i + 1; j < COUNT; j++) {
+        if (positions[i].distanceTo(positions[j]) < DIST) {
+          lineVerts.push(positions[i].x, positions[i].y, positions[i].z);
+          lineVerts.push(positions[j].x, positions[j].y, positions[j].z);
+        }
+      }
+    }
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(lineVerts), 3));
+    linesMesh = new THREE.LineSegments(lineGeo, lineMat);
+    scene.add(linesMesh);
+  }
+
+  let mouse = { x: 0, y: 0 };
+  document.addEventListener('mousemove', e => {
+    mouse.x = (e.clientX / window.innerWidth - 0.5) * 2;
+    mouse.y = -(e.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  let frame = 0;
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+
+    for (let i = 0; i < COUNT; i++) {
+      positions[i].add(velocities[i]);
+      if (Math.abs(positions[i].x) > 80) velocities[i].x *= -1;
+      if (Math.abs(positions[i].y) > 60) velocities[i].y *= -1;
+      if (Math.abs(positions[i].z) > 40) velocities[i].z *= -1;
+      posArr[i * 3]     = positions[i].x;
+      posArr[i * 3 + 1] = positions[i].y;
+      posArr[i * 3 + 2] = positions[i].z;
+    }
+    particleGeo.attributes.position.needsUpdate = true;
+
+    if (frame % 3 === 0) buildLines();
+
+    camera.position.x += (mouse.x * 8 - camera.position.x) * 0.025;
+    camera.position.y += (mouse.y * 5 - camera.position.y) * 0.025;
+    camera.lookAt(scene.position);
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+})();
+
+/* ── Nav Scroll Effect ── */
+(function () {
+  const nav = document.getElementById('main-nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+  }, { passive: true });
+})();
+
+/* ── Scroll Reveal ── */
+(function () {
+  const els = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.1 });
+  els.forEach(el => obs.observe(el));
+})();
+
+/* ── Stats Counter Animation ── */
+(function () {
+  const nums = document.querySelectorAll('.stat-number[data-target]');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target;
+      const target = parseInt(el.dataset.target, 10);
+      const suffix = el.dataset.suffix || '';
+      let current = 0;
+      const duration = 1400;
+      const step = target / (duration / 16);
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        el.textContent = Math.round(current) + suffix;
+        if (current >= target) clearInterval(timer);
+      }, 16);
+      obs.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+  nums.forEach(n => obs.observe(n));
+})();
+
+/* ── Language Chip Cycling ── */
+(function () {
+  const chips = document.querySelectorAll('#lang-chips .lang-chip');
+  let idx = 0;
+  setInterval(() => {
+    chips[idx].classList.remove('active');
+    idx = (idx + 1) % chips.length;
+    chips[idx].classList.add('active');
+  }, 1200);
+})();
+
+/* ── 3D Tilt on Cards ── */
+(function () {
+  const cards = document.querySelectorAll('.feature-card, .hiw-visual-card, .studio-mock');
+  cards.forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const cx = r.left + r.width  / 2;
+      const cy = r.top  + r.height / 2;
+      const dx = (e.clientX - cx) / (r.width  / 2);
+      const dy = (e.clientY - cy) / (r.height / 2);
+      card.style.transform = `perspective(800px) rotateY(${dx * 5}deg) rotateX(${-dy * 5}deg) translateY(-4px)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

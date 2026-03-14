@@ -3,10 +3,13 @@
 import os
 import sys
 import uuid
+import json
 import logging
 import threading
 import subprocess
 from pathlib import Path
+
+from werkzeug.utils import secure_filename
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -56,14 +59,30 @@ def _ffmpeg_bin() -> str:
 
 
 @app.route("/")
-def index():
+def landing():
+    return send_file(FRONTEND_DIR / "landing.html")
+
+
+@app.route("/studio")
+def studio():
     return send_file(FRONTEND_DIR / "index.html")
+
+
+UPLOADS_DIR = ROOT / "media" / "uploads"
 
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    data   = request.get_json(silent=True) or {}
-    prompt = data.get("prompt", "").strip()
+    # Support both multipart/form-data (with file uploads) and application/json
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        prompt = request.form.get("prompt", "").strip()
+        raw_settings = json.loads(request.form.get("settings", "{}") or "{}")
+        uploaded_files = request.files.getlist("user_media")
+    else:
+        data = request.get_json(silent=True) or {}
+        prompt = data.get("prompt", "").strip()
+        raw_settings = data.get("settings", {}) or {}
+        uploaded_files = []
 
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
@@ -71,8 +90,6 @@ def generate():
         return jsonify({"error": "Prompt is too short — please be more descriptive."}), 400
     if len(prompt) > 3000:
         return jsonify({"error": "Prompt is too long (max 3000 characters)."}), 400
-
-    raw_settings = data.get("settings", {}) or {}
     duration = int(raw_settings.get("duration", 60))
     duration = max(15, min(duration, MAX_DURATION_SECS))
 
@@ -91,9 +108,22 @@ def generate():
     project_id = uuid.uuid4().hex[:10]
     create_project(project_id, prompt, settings)
 
+    # Save any user-uploaded media files
+    uploaded_paths = []
+    if uploaded_files:
+        upload_dir = UPLOADS_DIR / project_id
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        for f in uploaded_files:
+            if f and f.filename:
+                filename = secure_filename(f.filename)
+                dest = upload_dir / filename
+                f.save(str(dest))
+                uploaded_paths.append(str(dest))
+                logger.info("Saved user upload: %s", dest)
+
     thread = threading.Thread(
         target=run_pipeline,
-        args=(project_id, prompt, settings),
+        args=(project_id, prompt, settings, uploaded_paths),
         daemon=True,
         name=f"pipeline-{project_id}",
     )

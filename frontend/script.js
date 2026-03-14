@@ -108,6 +108,7 @@ let _pollTimer      = null;
 let _projectId      = null;
 let _originalPrompt = '';
 let _lastSettings   = {};
+let _uploadedFiles  = [];   // Array of File objects selected by user
 
 // ── Platform presets ──────────────────────────────────────────────────────────
 
@@ -158,15 +159,127 @@ function collectSettings() {
   };
 }
 
-function toggleSettings() {
-  const body  = document.getElementById('settingsBody');
-  const arrow = document.getElementById('settingsArrow');
-  const panel = document.getElementById('settingsToggle').closest('.settings-panel');
+function toggleAdvanced() {
+  const body  = document.getElementById('advancedSettingsBody');
+  const arrow = document.getElementById('advancedArrow');
   const open  = body.classList.toggle('open');
   arrow.classList.toggle('open', open);
   if (open) {
-    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
+    setTimeout(() => body.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
   }
+}
+
+// ── Media Upload ───────────────────────────────────────────────────────────────
+
+function initUpload() {
+  const fileInput = document.getElementById('mediaFileInput');
+  const composer  = document.getElementById('composerBox');
+  if (!fileInput || !composer) return;
+
+  fileInput.addEventListener('change', () => {
+    _addFiles(Array.from(fileInput.files));
+    fileInput.value = '';
+  });
+
+  // Drag events on the composer box
+  composer.addEventListener('dragenter', e => { e.preventDefault(); composer.classList.add('drag-over'); });
+  composer.addEventListener('dragover',  e => { e.preventDefault(); composer.classList.add('drag-over'); });
+  composer.addEventListener('dragleave', e => {
+    if (!composer.contains(e.relatedTarget)) composer.classList.remove('drag-over');
+  });
+  composer.addEventListener('drop', e => {
+    e.preventDefault();
+    composer.classList.remove('drag-over');
+    _addFiles(Array.from(e.dataTransfer.files));
+  });
+
+  // Example chips inside composer toolbar
+  document.querySelectorAll('.eg-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById('promptInput');
+      input.value = btn.dataset.prompt;
+      updateCharCount();
+      input.focus();
+    });
+  });
+}
+
+function _addFiles(newFiles) {
+  const allowed = ['image/jpeg','image/png','image/webp','video/mp4','video/webm','video/quicktime'];
+  const maxSize = 50 * 1024 * 1024;  // 50 MB
+  for (const f of newFiles) {
+    if (!allowed.includes(f.type)) { alert(`${f.name}: unsupported file type.`); continue; }
+    if (f.size > maxSize) { alert(`${f.name}: exceeds 50 MB limit.`); continue; }
+    if (_uploadedFiles.length >= 10) { alert('Maximum 10 files allowed.'); break; }
+    if (_uploadedFiles.find(x => x.name === f.name && x.size === f.size)) continue;
+    _uploadedFiles.push(f);
+  }
+  _renderUploadPreviews();
+}
+
+function _removeUploadFile(idx) {
+  _uploadedFiles.splice(idx, 1);
+  _renderUploadPreviews();
+}
+
+function _renderUploadPreviews() {
+  const container = document.getElementById('uploadPreviews');
+  if (!container) return;
+
+  if (!_uploadedFiles.length) {
+    container.innerHTML = '';
+    container.classList.remove('has-files');
+    _updateAttachBtn();
+    return;
+  }
+  container.classList.add('has-files');
+  container.innerHTML = '';
+
+  _uploadedFiles.forEach((f, idx) => {
+    const isVideo = f.type.startsWith('video/');
+    const chip = document.createElement('div');
+    chip.className = 'attach-chip';
+
+    const nameShort = f.name.length > 16 ? f.name.slice(0, 13) + '…' : f.name;
+
+    if (isVideo) {
+      chip.innerHTML = `
+        <div class="attach-chip-video-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        </div>
+        <span class="attach-chip-name">${escapeHtml(nameShort)}</span>
+        <button class="attach-chip-remove" onclick="_removeUploadFile(${idx})" title="Remove">✕</button>
+      `;
+    } else {
+      const url = URL.createObjectURL(f);
+      chip.innerHTML = `
+        <img class="attach-chip-thumb" src="${url}" alt="" />
+        <span class="attach-chip-name">${escapeHtml(nameShort)}</span>
+        <button class="attach-chip-remove" onclick="_removeUploadFile(${idx})" title="Remove">✕</button>
+      `;
+    }
+    container.appendChild(chip);
+  });
+
+  _updateAttachBtn();
+}
+
+function _updateAttachBtn() {
+  const btn   = document.getElementById('composerAttachBtn');
+  const label = document.getElementById('attachBtnLabel');
+  if (!btn || !label) return;
+  if (_uploadedFiles.length > 0) {
+    btn.classList.add('has-files');
+    label.textContent = `${_uploadedFiles.length} file${_uploadedFiles.length > 1 ? 's' : ''} attached`;
+  } else {
+    btn.classList.remove('has-files');
+    label.textContent = 'Attach Media';
+  }
+}
+
+function _fmtSize(bytes) {
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 // Segmented control click handler
@@ -195,10 +308,22 @@ async function startGeneration() {
   setGenerating(true);
 
   try {
+    let body, headers = {};
+    if (_uploadedFiles.length > 0) {
+      const fd = new FormData();
+      fd.append('prompt', prompt);
+      fd.append('settings', JSON.stringify(settings));
+      _uploadedFiles.forEach(f => fd.append('user_media', f));
+      body = fd;
+      // Let browser set Content-Type with boundary automatically
+    } else {
+      body    = JSON.stringify({ prompt, settings });
+      headers = { 'Content-Type': 'application/json' };
+    }
     const res  = await fetch(`${API_BASE}/generate`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ prompt, settings }),
+      method: 'POST',
+      headers,
+      body,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
@@ -267,8 +392,28 @@ function updateProgress(data) {
     detailEl.textContent = data.step_detail;
   }
 
+  // Update placeholder stage text during early stages
+  const _PP_STAGE_TEXTS = {
+    analyzing_prompt: 'Analyzing your topic…',
+    generating_script: 'Writing your script…',
+    planning_scenes:   'Planning scene structure…',
+  };
+  const placeholderEl   = document.getElementById('progressPlaceholder');
+  const placeholderStage = document.getElementById('placeholderStageText');
+  if (placeholderStage && _PP_STAGE_TEXTS[step]) {
+    placeholderStage.textContent = _PP_STAGE_TEXTS[step];
+  }
+
   if (data.script) {
-    document.getElementById('scriptPreview').classList.remove('hidden');
+    // Dismiss placeholder and reveal real content with a smooth animation
+    if (placeholderEl && !placeholderEl.classList.contains('hidden')) {
+      placeholderEl.classList.add('hidden');
+    }
+    const scriptPreview = document.getElementById('scriptPreview');
+    if (scriptPreview.classList.contains('hidden')) {
+      scriptPreview.classList.remove('hidden');
+      scriptPreview.classList.add('pp-reveal');
+    }
     document.getElementById('scriptText').textContent = data.script;
   }
 
@@ -278,7 +423,10 @@ function updateProgress(data) {
 function renderScenes(scenes) {
   const preview = document.getElementById('scenesPreview');
   const grid    = document.getElementById('scenesGrid');
-  preview.classList.remove('hidden');
+  if (preview.classList.contains('hidden')) {
+    preview.classList.remove('hidden');
+    preview.classList.add('pp-reveal');
+  }
   grid.innerHTML = '';
   scenes.forEach(scene => {
     const card = document.createElement('div');
@@ -340,9 +488,22 @@ function resetUI() {
 
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent  = '0%';
-  document.getElementById('scriptPreview').classList.add('hidden');
-  document.getElementById('scenesPreview').classList.add('hidden');
+
+  // Reset right column: restore placeholder, hide real content
+  const placeholderEl = document.getElementById('progressPlaceholder');
+  if (placeholderEl) {
+    placeholderEl.classList.remove('hidden');
+    const stageEl = document.getElementById('placeholderStageText');
+    if (stageEl) stageEl.textContent = 'Analyzing your topic…';
+  }
+  const scriptPreview = document.getElementById('scriptPreview');
+  scriptPreview.classList.add('hidden');
+  scriptPreview.classList.remove('pp-reveal');
+  const scenesPreview = document.getElementById('scenesPreview');
+  scenesPreview.classList.add('hidden');
+  scenesPreview.classList.remove('pp-reveal');
   document.getElementById('scenesGrid').innerHTML = '';
+
   STEP_ORDER.forEach(s => {
     const el = document.querySelector(`.step[data-step="${s}"]`);
     if (el) el.classList.remove('active', 'done');
@@ -394,17 +555,6 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-// ── Example prompts ───────────────────────────────────────────────────────────
-
-document.querySelectorAll('.example-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const input = document.getElementById('promptInput');
-    input.value = btn.dataset.prompt;
-    updateCharCount();
-    input.focus();
-  });
-});
 
 function updateCharCount() {
   document.getElementById('charCount').textContent =
@@ -553,9 +703,6 @@ function remakeFromDash(prompt, settings) {
     if (settings.voice_gender) setSegValue('voiceSeg',    settings.voice_gender);
     setSegValue('musicSeg', String(settings.include_music !== false));
   }
-  const body  = document.getElementById('settingsBody');
-  const arrow = document.getElementById('settingsArrow');
-  if (!body.classList.contains('open')) { body.classList.add('open'); arrow.classList.add('open'); }
   setTimeout(() => document.getElementById('promptInput').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
 }
 
@@ -617,8 +764,16 @@ async function startRemake() {
   document.getElementById('resultSection').classList.add('hidden');
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent  = '0%';
-  document.getElementById('scriptPreview').classList.add('hidden');
-  document.getElementById('scenesPreview').classList.add('hidden');
+  const _remakePlaceholder = document.getElementById('progressPlaceholder');
+  if (_remakePlaceholder) {
+    _remakePlaceholder.classList.remove('hidden');
+    const _remakeStageEl = document.getElementById('placeholderStageText');
+    if (_remakeStageEl) _remakeStageEl.textContent = 'Analyzing your topic…';
+  }
+  const _remakeScript = document.getElementById('scriptPreview');
+  _remakeScript.classList.add('hidden'); _remakeScript.classList.remove('pp-reveal');
+  const _remakeScenes = document.getElementById('scenesPreview');
+  _remakeScenes.classList.add('hidden'); _remakeScenes.classList.remove('pp-reveal');
   document.getElementById('scenesGrid').innerHTML = '';
   STEP_ORDER.forEach(s => {
     const el = document.querySelector(`.step[data-step="${s}"]`);
@@ -628,10 +783,21 @@ async function startRemake() {
   setGenerating(true);
 
   try {
+    let body, headers = {};
+    if (_uploadedFiles.length > 0) {
+      const fd = new FormData();
+      fd.append('prompt', prompt);
+      fd.append('settings', JSON.stringify(remakeSettings));
+      _uploadedFiles.forEach(f => fd.append('user_media', f));
+      body = fd;
+    } else {
+      body    = JSON.stringify({ prompt, settings: remakeSettings });
+      headers = { 'Content-Type': 'application/json' };
+    }
     const res  = await fetch(`${API_BASE}/generate`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ prompt, settings: remakeSettings }),
+      method: 'POST',
+      headers,
+      body,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
@@ -653,6 +819,7 @@ document.getElementById('remakePromptInput')?.addEventListener('input', () => {
 // ── Default view: Dashboard on first load ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   showDashboard();
+  initUpload();
 });
 
 // Spin keyframe is defined in style.css (.spin-anim)

@@ -90,62 +90,104 @@
         <div class="card-corner tl"></div><div class="card-corner tr"></div>
         <div class="card-corner bl"></div><div class="card-corner br"></div>
 
-        <div class="card-header-row">
+        <!-- Studio Header -->
+        <div class="studio-header">
           <div>
-            <h2 class="card-title">What&rsquo;s your video about?</h2>
-            <p class="card-subtitle">Describe your topic in detail — the more specific, the better the result.</p>
+            <h2 class="card-title">Create Your Video</h2>
+            <p class="card-subtitle">Describe your vision, attach your media, pick a platform — generate.</p>
           </div>
-          <div class="card-badge">INPUT</div>
+          <div class="card-badge">STUDIO</div>
         </div>
 
-        <div class="prompt-wrapper">
-          <textarea id="promptInput" class="prompt-input"
-            placeholder="e.g. Create a tutorial on how to use baby diapers for new parents, covering preparation, changing steps, and hygiene tips, in a calm and reassuring tone."
+        <!-- Platform Picker -->
+        <div class="platform-picker-section">
+          <span class="qs-label">Platform</span>
+          <div class="platform-scroller seg-control" id="platformSeg">
+            <button class="seg-btn plat-btn plat-custom" data-value="">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Custom
+            </button>
+            <button class="seg-btn plat-btn plat-yt" data-value="youtube">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0 12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24 15.96 24 12 24 12s0-3.96-.5-5.81zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z"/></svg>
+              YouTube
+            </button>
+            <button class="seg-btn plat-btn plat-yts" data-value="youtube_shorts">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0 12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24 15.96 24 12 24 12s0-3.96-.5-5.81zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z"/></svg>
+              Shorts
+            </button>
+            <button class="seg-btn plat-btn plat-tt" data-value="tiktok">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.77 0 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.3a6.34 6.34 0 0 0 12.68 0V8.69a8.18 8.18 0 0 0 4.78 1.52V6.77a4.85 4.85 0 0 1-1.02-.08z"/></svg>
+              TikTok
+            </button>
+            <button class="seg-btn plat-btn plat-ig" data-value="instagram_reels">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162S8.597 18.163 12 18.163s6.162-2.759 6.162-6.162S15.403 5.838 12 5.838zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+              Reels
+            </button>
+            <button class="seg-btn plat-btn plat-igp" data-value="instagram_post">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162S8.597 18.163 12 18.163s6.162-2.759 6.162-6.162S15.403 5.838 12 5.838zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+              IG Post
+            </button>
+            <button class="seg-btn plat-btn plat-li" data-value="linkedin">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              LinkedIn
+            </button>
+            <button class="seg-btn plat-btn plat-tw" data-value="twitter">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              X
+            </button>
+          </div>
+        </div>
+
+        <!-- Unified Composer -->
+        <div class="composer" id="composerBox">
+          <div class="composer-drop-overlay" id="composerDropOverlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Drop files to attach</span>
+          </div>
+          <textarea id="promptInput" class="composer-textarea"
+            placeholder="Describe your video in detail...&#10;&#10;e.g. A step-by-step tutorial on healthy meal prep for busy professionals — covering quick recipes, storage tips, and weekly planning."
             rows="5" maxlength="3000"></textarea>
-          <div class="char-count"><span id="charCount">0</span> / 3000</div>
-        </div>
 
-        <div class="example-prompts">
-          <span class="examples-label">Quick start:</span>
-          <button class="example-btn" data-prompt="Create a tutorial on how to properly change a baby diaper for first-time parents. Cover all steps from preparation to disposal, with safety tips, in a calm and reassuring tone.">Baby Diaper Tutorial</button>
-          <button class="example-btn" data-prompt="Make an explainer video about the health benefits of drinking enough water daily. Include science-backed facts, symptoms of dehydration, and practical daily tips.">Benefits of Water</button>
-          <button class="example-btn" data-prompt="Create a motivational video about building consistent exercise habits. Include the science of habit formation, beginner-friendly tips, and inspiring real-world examples.">Exercise Habits</button>
-        </div>
+          <!-- Attachment chips (hidden until files added) -->
+          <div class="composer-attachments" id="uploadPreviews"></div>
 
-        <!-- Settings Panel -->
-        <div class="settings-panel">
-          <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
-            <svg class="settings-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-            Customize Settings
-            <span class="settings-arrow" id="settingsArrow">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </span>
-          </button>
-          <div class="settings-body" id="settingsBody">
-            <div class="setting-group full-width">
-              <label class="setting-label">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                Platform
-              </label>
-              <div class="seg-control" id="platformSeg">
-                <button class="seg-btn" data-value="youtube">YouTube</button>
-                <button class="seg-btn" data-value="youtube_shorts">YT Shorts</button>
-                <button class="seg-btn" data-value="tiktok">TikTok</button>
-                <button class="seg-btn" data-value="instagram_reels">Reels</button>
-                <button class="seg-btn" data-value="instagram_post">IG Post</button>
-                <button class="seg-btn" data-value="linkedin">LinkedIn</button>
-                <button class="seg-btn" data-value="twitter">Twitter/X</button>
-              </div>
-              <p class="setting-hint">Select a platform to auto-configure aspect ratio, duration &amp; tone.</p>
+          <!-- Toolbar -->
+          <div class="composer-toolbar">
+            <input type="file" id="mediaFileInput" multiple
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
+              style="display:none" />
+            <button class="composer-attach-btn" id="composerAttachBtn"
+              onclick="document.getElementById('mediaFileInput').click()"
+              title="Attach your photos or videos">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span id="attachBtnLabel">Attach Media</span>
+            </button>
+            <div class="composer-examples">
+              <span class="composer-eg-label">Try:</span>
+              <button class="eg-chip" data-prompt="Create a tutorial on how to properly change a baby diaper for first-time parents. Cover all steps from preparation to disposal, with safety tips, in a calm and reassuring tone.">Baby Tutorial</button>
+              <button class="eg-chip" data-prompt="Make an explainer video about the health benefits of drinking enough water daily. Include science-backed facts, symptoms of dehydration, and practical daily tips.">Water Benefits</button>
+              <button class="eg-chip" data-prompt="Create a motivational video about building consistent exercise habits. Include the science of habit formation, beginner-friendly tips, and inspiring real-world examples.">Exercise Habits</button>
             </div>
-            <div class="setting-group full-width">
-              <label class="setting-label">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>
-                Language
-              </label>
+            <span class="composer-chars"><span id="charCount">0</span>/3000</span>
+          </div>
+        </div>
+
+        <!-- Quick Settings -->
+        <div class="quick-settings">
+          <div class="qs-row">
+            <div class="qs-group">
+              <span class="qs-label">Duration</span>
+              <div class="seg-control" id="durationSeg">
+                <button class="seg-btn" data-value="30">30s</button>
+                <button class="seg-btn active" data-value="60">1 min</button>
+                <button class="seg-btn" data-value="90">90s</button>
+                <button class="seg-btn" data-value="120">2 min</button>
+                <button class="seg-btn" data-value="180">3 min</button>
+                <button class="seg-btn" data-value="300">5 min</button>
+              </div>
+            </div>
+            <div class="qs-group">
+              <span class="qs-label">Language</span>
               <div class="seg-control" id="languageSeg">
                 <button class="seg-btn active" data-value="en">English</button>
                 <button class="seg-btn" data-value="hi">Hindi</button>
@@ -161,20 +203,20 @@
                 <button class="seg-btn" data-value="as">Assamese</button>
               </div>
             </div>
-            <div class="settings-row">
-              <div class="setting-group">
-                <label class="setting-label">Duration</label>
-                <div class="seg-control" id="durationSeg">
-                  <button class="seg-btn" data-value="30">30s</button>
-                  <button class="seg-btn active" data-value="60">1 min</button>
-                  <button class="seg-btn" data-value="90">90s</button>
-                  <button class="seg-btn" data-value="120">2 min</button>
-                  <button class="seg-btn" data-value="180">3 min</button>
-                  <button class="seg-btn" data-value="300">5 min</button>
-                </div>
-              </div>
-              <div class="setting-group">
-                <label class="setting-label">Tone</label>
+          </div>
+
+          <button class="qs-advanced-toggle" onclick="toggleAdvanced()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Advanced Settings
+            <span class="qs-arrow" id="advancedArrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </button>
+
+          <div class="qs-advanced-body" id="advancedSettingsBody">
+            <div class="qs-row">
+              <div class="qs-group">
+                <span class="qs-label">Tone</span>
                 <div class="seg-control" id="toneSeg">
                   <button class="seg-btn active" data-value="educational">Educational</button>
                   <button class="seg-btn" data-value="professional">Professional</button>
@@ -183,36 +225,34 @@
                   <button class="seg-btn" data-value="entertaining">Entertaining</button>
                 </div>
               </div>
-            </div>
-            <div class="settings-row">
-              <div class="setting-group">
-                <label class="setting-label">Image Style</label>
+              <div class="qs-group">
+                <span class="qs-label">Image Style</span>
                 <div class="seg-control" id="styleSeg">
                   <button class="seg-btn active" data-value="photorealistic">Photorealistic</button>
                   <button class="seg-btn" data-value="cinematic">Cinematic</button>
                   <button class="seg-btn" data-value="documentary">Documentary</button>
                 </div>
               </div>
-              <div class="setting-group">
-                <label class="setting-label">Aspect Ratio</label>
+            </div>
+            <div class="qs-row">
+              <div class="qs-group">
+                <span class="qs-label">Aspect Ratio</span>
                 <div class="seg-control" id="ratioSeg">
                   <button class="seg-btn active" data-value="16:9">16:9 Landscape</button>
                   <button class="seg-btn" data-value="9:16">9:16 Vertical</button>
                   <button class="seg-btn" data-value="1:1">1:1 Square</button>
                 </div>
               </div>
-            </div>
-            <div class="settings-row">
-              <div class="setting-group">
-                <label class="setting-label">Voiceover</label>
+              <div class="qs-group">
+                <span class="qs-label">Voiceover</span>
                 <div class="seg-control" id="voiceSeg">
                   <button class="seg-btn active" data-value="auto">Auto</button>
                   <button class="seg-btn" data-value="female">Female</button>
                   <button class="seg-btn" data-value="male">Male</button>
                 </div>
               </div>
-              <div class="setting-group">
-                <label class="setting-label">Background Music</label>
+              <div class="qs-group">
+                <span class="qs-label">Background Music</span>
                 <div class="seg-control" id="musicSeg">
                   <button class="seg-btn active" data-value="true">On</button>
                   <button class="seg-btn" data-value="false">Off</button>
@@ -224,7 +264,7 @@
 
         <button id="generateBtn" class="btn btn-primary btn-generate" onclick="startGeneration()">
           <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z"/></svg>
-          Generate Video
+          <span id="generateBtnLabel">Generate Video</span>
           <span class="btn-shine"></span>
         </button>
         <div id="errorMsg" class="error-msg hidden"></div>
@@ -314,6 +354,50 @@
           </div><!-- .progress-left -->
 
           <div class="progress-right" id="progressRight">
+
+            <!-- Skeleton placeholder — visible until script is ready -->
+            <div id="progressPlaceholder" class="progress-placeholder">
+              <div class="pp-header">
+                <span class="pp-badge"><span class="pp-dot"></span>AI PREVIEW</span>
+                <span class="pp-stage" id="placeholderStageText">Analyzing your topic…</span>
+              </div>
+
+              <div class="pp-section">
+                <div class="pp-section-label"></div>
+                <div class="pp-lines">
+                  <div class="sk-line"></div>
+                  <div class="sk-line sk-90"></div>
+                  <div class="sk-line sk-80"></div>
+                  <div class="sk-line sk-95"></div>
+                  <div class="sk-line sk-70"></div>
+                  <div class="sk-line sk-85"></div>
+                </div>
+              </div>
+
+              <div class="pp-section">
+                <div class="pp-section-label"></div>
+                <div class="pp-scenes">
+                  <div class="sk-scene">
+                    <div class="sk-scene-num"></div>
+                    <div class="sk-line sk-90"></div>
+                    <div class="sk-line sk-70"></div>
+                  </div>
+                  <div class="sk-scene">
+                    <div class="sk-scene-num"></div>
+                    <div class="sk-line sk-80"></div>
+                    <div class="sk-line sk-60"></div>
+                  </div>
+                  <div class="sk-scene">
+                    <div class="sk-scene-num"></div>
+                    <div class="sk-line sk-85"></div>
+                    <div class="sk-line sk-65"></div>
+                  </div>
+                </div>
+              </div>
+
+              <p class="pp-tip">Script &amp; scene preview will appear here as the AI generates them</p>
+            </div><!-- #progressPlaceholder -->
+
             <div id="scriptPreview" class="script-preview hidden">
               <h3 class="section-label">Generated Script</h3>
               <div class="script-text" id="scriptText"></div>
