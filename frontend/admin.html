@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — Mukku AI Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050912; --sidebar: #080f1f; --card: #0c1424; --card2: #0f1a2e;
+      --cyan: #00d4ff; --violet: #8b30ff; --green: #00c896; --orange: #ff9f43; --red: #ff4d6d;
+      --border: rgba(0,212,255,0.09); --border2: rgba(0,212,255,0.15);
+      --text: #d8eeff; --muted: rgba(216,238,255,0.45); --muted2: rgba(216,238,255,0.25);
+      --mono: 'JetBrains Mono', monospace;
+      --sidebar-w: 240px;
+    }
+    html, body { height: 100%; overflow-x: hidden; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; line-height: 1.6; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+      background: var(--sidebar); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; z-index: 100;
+      transition: transform .3s ease;
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: .55rem;
+      padding: 1.4rem 1.25rem; border-bottom: 1px solid var(--border); text-decoration: none;
+    }
+    .sidebar-logo-text {
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem;
+      background: linear-gradient(135deg, var(--violet), var(--cyan));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .sidebar-badge {
+      font-family: var(--mono); font-size: .55rem; font-weight: 600;
+      padding: .15rem .45rem; border-radius: 4px; margin-left: auto;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .badge-super { background: rgba(255,159,67,0.15); border: 1px solid rgba(255,159,67,0.35); color: var(--orange); }
+    .badge-admin { background: rgba(255,77,109,0.15); border: 1px solid rgba(255,77,109,0.3); color: var(--red); }
+
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 1rem 0; }
+    .nav-section-label {
+      font-family: var(--mono); font-size: .6rem; font-weight: 500; color: var(--muted2);
+      text-transform: uppercase; letter-spacing: .08em; padding: .5rem 1.25rem .25rem;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .65rem 1.25rem; cursor: pointer;
+      color: var(--muted); font-size: .875rem; font-weight: 500;
+      transition: color .2s, background .2s; text-decoration: none;
+      border-left: 2px solid transparent;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(0,212,255,0.04); }
+    .nav-item.active { color: var(--cyan); border-left-color: var(--cyan); background: rgba(0,212,255,0.06); }
+    .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: .7; }
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    .sidebar-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+    .sidebar-user { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; }
+    .sidebar-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--violet), var(--cyan));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700; color: #fff;
+    }
+    .sidebar-user-info { min-width: 0; }
+    .sidebar-user-name { font-size: .85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-user-role { font-family: var(--mono); font-size: .62rem; color: var(--orange); }
+    .btn-logout {
+      width: 100%; padding: .55rem; border: 1px solid var(--border2); border-radius: 8px;
+      background: transparent; color: var(--muted); font-size: .8rem; cursor: pointer;
+      transition: all .2s; display: flex; align-items: center; justify-content: center; gap: .4rem;
+    }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── HEADER ── */
+    .header {
+      position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: 60px;
+      background: rgba(8,15,31,0.85); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border); z-index: 90;
+      display: flex; align-items: center; justify-content: space-between; padding: 0 1.75rem;
+    }
+    .header::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
+    }
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    .hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--text); padding: .25rem; }
+    .page-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.1rem; }
+    .header-right { display: flex; align-items: center; gap: .75rem; }
+    .health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+    .health-dot.warn { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+    .health-dot.err { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+    .health-label { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+
+    /* ── MAIN ── */
+    .main { margin-left: var(--sidebar-w); margin-top: 60px; padding: 2rem 1.75rem; min-height: calc(100vh - 60px); }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── SECTION HEADER ── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+    .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; }
+    .section-sub { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
+
+    /* ── STAT CARDS ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .stat-card.cyan::before { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+    .stat-card.violet::before { background: linear-gradient(90deg, transparent, var(--violet), transparent); }
+    .stat-card.green::before { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+    .stat-card.orange::before { background: linear-gradient(90deg, transparent, var(--orange), transparent); }
+    .stat-card.red::before { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+    .stat-label { font-family: var(--mono); font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .5rem; }
+    .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat-value.cyan { color: var(--cyan); }
+    .stat-value.violet { color: var(--violet); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.red { color: var(--red); }
+    .stat-delta { font-size: .78rem; color: var(--muted); margin-top: .35rem; }
+    .stat-delta span { color: var(--green); }
+    .stat-icon { position: absolute; right: 1rem; top: 1rem; opacity: .07; font-size: 2.5rem; }
+
+    /* ── CHART ── */
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; }
+    .chart-title { font-family: 'Space Grotesk', sans-serif; font-size: .95rem; font-weight: 600; margin-bottom: 1.25rem; }
+    .bar-chart { display: flex; align-items: flex-end; gap: .4rem; height: 120px; }
+    .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .25rem; }
+    .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; background: linear-gradient(180deg, var(--cyan), rgba(0,212,255,0.3)); transition: height .5s ease; }
+    .bar:hover { background: linear-gradient(180deg, #fff, var(--cyan)); }
+    .bar-label { font-family: var(--mono); font-size: .58rem; color: var(--muted); }
+    .bar-val { font-family: var(--mono); font-size: .6rem; color: var(--cyan); }
+
+    /* ── TABLE ── */
+    .table-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 1.5rem; }
+    .table-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+    .table-title { font-family: 'Space Grotesk', sans-serif; font-size: .95rem; font-weight: 600; }
+    .table-controls { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .search-input {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px;
+      padding: .45rem .85rem; color: var(--text); font-size: .82rem; outline: none; transition: border-color .2s; width: 200px;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus { border-color: rgba(0,212,255,0.4); }
+    .filter-select {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px;
+      padding: .45rem .75rem; color: var(--text); font-size: .82rem; outline: none; cursor: pointer;
+    }
+    .filter-select option { background: #0c1424; }
+    .btn-sm {
+      padding: .4rem .85rem; border-radius: 7px; border: 1px solid var(--border2);
+      background: rgba(0,212,255,0.07); color: var(--cyan); font-size: .8rem; font-weight: 500;
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .btn-sm:hover { background: rgba(0,212,255,0.15); border-color: var(--cyan); }
+    .btn-sm.violet { background: rgba(139,48,255,0.07); color: var(--violet); border-color: rgba(139,48,255,0.25); }
+    .btn-sm.violet:hover { background: rgba(139,48,255,0.15); border-color: var(--violet); }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    th { font-family: var(--mono); font-size: .68rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: .75rem 1.5rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: .85rem 1.5rem; border-bottom: 1px solid rgba(0,212,255,0.04); font-size: .85rem; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(0,212,255,0.02); }
+
+    .user-cell { display: flex; align-items: center; gap: .65rem; }
+    .avatar-sm { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, var(--violet), var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700; color: #fff; }
+    .avatar-sm.super { background: linear-gradient(135deg, var(--orange), var(--red)); }
+    .user-name { font-weight: 500; }
+    .user-email { font-size: .75rem; color: var(--muted); }
+
+    .badge { display: inline-flex; align-items: center; padding: .2rem .55rem; border-radius: 5px; font-family: var(--mono); font-size: .68rem; font-weight: 500; white-space: nowrap; }
+    .badge-free { background: rgba(216,238,255,0.07); color: var(--muted); border: 1px solid rgba(216,238,255,0.12); }
+    .badge-pro { background: rgba(139,48,255,0.12); color: var(--violet); border: 1px solid rgba(139,48,255,0.25); }
+    .badge-active { background: rgba(0,200,150,0.1); color: var(--green); border: 1px solid rgba(0,200,150,0.2); }
+    .badge-inactive { background: rgba(255,77,109,0.1); color: var(--red); border: 1px solid rgba(255,77,109,0.2); }
+    .badge-user { background: rgba(216,238,255,0.07); color: var(--muted); border: 1px solid rgba(216,238,255,0.12); }
+    .badge-admin-role { background: rgba(255,77,109,0.1); color: var(--red); border: 1px solid rgba(255,77,109,0.2); }
+    .badge-super-role { background: rgba(255,159,67,0.12); color: var(--orange); border: 1px solid rgba(255,159,67,0.3); }
+    .badge-done { background: rgba(0,200,150,0.1); color: var(--green); border: 1px solid rgba(0,200,150,0.2); }
+    .badge-proc { background: rgba(0,212,255,0.1); color: var(--cyan); border: 1px solid rgba(0,212,255,0.2); }
+    .badge-fail { background: rgba(255,77,109,0.1); color: var(--red); border: 1px solid rgba(255,77,109,0.2); }
+
+    .perm-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+    .perm-chip { font-family: var(--mono); font-size: .6rem; padding: .15rem .4rem; border-radius: 4px; background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.15); color: var(--cyan); white-space: nowrap; }
+
+    .action-btns { display: flex; align-items: center; gap: .35rem; }
+    .btn-action { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); transition: all .2s; }
+    .btn-action:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.07); }
+    .btn-action.danger:hover { border-color: var(--red); color: var(--red); background: rgba(255,77,109,0.07); }
+    .btn-action.warn:hover { border-color: var(--orange); color: var(--orange); background: rgba(255,159,67,0.07); }
+    .btn-action:disabled { opacity: .3; cursor: not-allowed; pointer-events: none; }
+
+    /* ── PAGINATION ── */
+    .pagination { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-top: 1px solid var(--border); flex-wrap: wrap; gap: .5rem; }
+    .page-info { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+    .page-btns { display: flex; gap: .3rem; }
+    .page-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: .8rem; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; }
+    .page-btn:hover:not(:disabled) { border-color: var(--cyan); color: var(--cyan); }
+    .page-btn.active { background: rgba(0,212,255,0.1); border-color: var(--cyan); color: var(--cyan); }
+    .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* ── HEALTH ── */
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .health-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; }
+    .health-icon-wrap { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+    .health-icon-wrap.ok { background: rgba(0,200,150,0.1); border: 1px solid rgba(0,200,150,0.2); }
+    .health-icon-wrap.err { background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.2); }
+    .health-info-label { font-family: var(--mono); font-size: .7rem; color: var(--muted); }
+    .health-info-val { font-size: .9rem; font-weight: 600; margin-top: .15rem; }
+    .health-info-val.ok { color: var(--green); }
+    .health-info-val.err { color: var(--red); }
+
+    /* ── PERMISSION CHECKBOXES ── */
+    .perm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+    .perm-check { display: flex; align-items: center; gap: .5rem; padding: .5rem .65rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); cursor: pointer; transition: border-color .2s; }
+    .perm-check:hover { border-color: rgba(0,212,255,0.3); }
+    .perm-check input[type=checkbox] { accent-color: var(--cyan); width: 14px; height: 14px; cursor: pointer; }
+    .perm-check label { font-family: var(--mono); font-size: .68rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+    .perm-check.checked { border-color: rgba(0,212,255,0.25); background: rgba(0,212,255,0.04); }
+    .perm-check.checked label { color: var(--cyan); }
+
+    /* ── MODAL ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(5,9,18,0.85); backdrop-filter: blur(4px); z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--card); border: 1px solid var(--border2); border-radius: 20px; padding: 2rem; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: .25rem; }
+    .modal-sub { font-size: .84rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .modal-close { position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2rem; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-label { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .4rem; }
+    .form-input, .form-select {
+      width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 10px; padding: .75rem 1rem; color: var(--text); font-size: .9rem; outline: none; transition: border-color .2s;
+    }
+    .form-select option { background: #0c1424; }
+    .form-input:focus, .form-select:focus { border-color: rgba(0,212,255,0.4); }
+    .modal-actions { display: flex; gap: .75rem; margin-top: 1.5rem; }
+    .btn-primary { flex: 1; padding: .75rem; border: none; border-radius: 10px; background: linear-gradient(135deg, var(--violet), var(--cyan)); color: #fff; font-family: 'Space Grotesk', sans-serif; font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+    .btn-primary:hover { opacity: .85; }
+    .btn-secondary { flex: 1; padding: .75rem; border: 1px solid var(--border2); border-radius: 10px; background: transparent; color: var(--muted); font-size: .9rem; cursor: pointer; transition: all .2s; }
+    .btn-secondary:hover { border-color: var(--text); color: var(--text); }
+    .modal-warn { background: rgba(255,159,67,0.08); border: 1px solid rgba(255,159,67,0.2); border-radius: 8px; padding: .65rem .9rem; font-size: .8rem; color: var(--orange); margin-bottom: 1rem; }
+
+    /* ── CONFIRM ── */
+    .confirm-overlay { position: fixed; inset: 0; background: rgba(5,9,18,0.85); backdrop-filter: blur(4px); z-index: 210; display: none; align-items: center; justify-content: center; padding: 1rem; }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box { background: var(--card); border: 1px solid rgba(255,77,109,0.3); border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 360px; text-align: center; }
+    .confirm-icon { font-size: 2rem; margin-bottom: .75rem; }
+    .confirm-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+    .confirm-msg { font-size: .84rem; color: var(--muted); margin-bottom: 1.25rem; }
+    .confirm-btns { display: flex; gap: .6rem; }
+    .btn-danger { flex: 1; padding: .7rem; border: none; border-radius: 9px; background: var(--red); color: #fff; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+    .btn-danger:hover { opacity: .8; }
+
+    /* ── AUDIT LOG ── */
+    .audit-action { font-family: var(--mono); font-size: .75rem; }
+    .audit-action.create_admin { color: var(--green); }
+    .audit-action.revoke_admin { color: var(--red); }
+    .audit-action.promote_to_admin { color: var(--cyan); }
+    .audit-action.update_admin { color: var(--orange); }
+    .audit-action.delete_user { color: var(--red); }
+    .audit-action.update_user { color: var(--cyan); }
+
+    /* ── TOAST ── */
+    .toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 300; display: flex; flex-direction: column; gap: .5rem; }
+    .toast { background: var(--card2); border: 1px solid var(--border2); border-radius: 10px; padding: .75rem 1.1rem; font-size: .85rem; min-width: 240px; max-width: 340px; display: flex; align-items: center; gap: .6rem; animation: toastIn .3s ease; }
+    .toast.success { border-color: rgba(0,200,150,0.3); }
+    .toast.error { border-color: rgba(255,77,109,0.3); }
+    .toast-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .toast.success .toast-dot { background: var(--green); }
+    .toast.error .toast-dot { background: var(--red); }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+    .empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+    .empty-icon { font-size: 2.5rem; margin-bottom: .75rem; opacity: .5; }
+
+    /* ── OVERVIEW QUICK GRID ── */
+    .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* ── MOBILE ── */
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { transform: translateX(-240px); width: 240px; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay.open { display: block; }
+      .header { left: 0; }
+      .hamburger { display: flex; }
+      .main { margin-left: 0; padding: 1.5rem 1rem; }
+      .overview-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .health-grid { grid-template-columns: repeat(2, 1fr); }
+      .search-input { width: 140px; }
+      .perm-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
+  <a href="/" class="sidebar-logo">
+    <img src="/static/mukku_logo.png" alt="" height="26" onerror="this.style.display='none'" />
+    <span class="sidebar-logo-text">Mukku AI Studio</span>
+    <span class="sidebar-badge badge-admin" id="role-badge">Admin</span>
+  </a>
+
+  <nav class="sidebar-nav" id="sidebar-nav">
+    <!-- Rendered dynamically based on permissions -->
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sb-avatar">A</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="sb-name">Admin</div>
+        <div class="sidebar-user-role" id="sb-role">Administrator</div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="logout()">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 17H4a1 1 0 01-1-1V4a1 1 0 011-1h3M14 14l4-4-4-4M18 10H8"/></svg>
+      Sign Out
+    </button>
+  </div>
+</aside>
+
+<!-- ── HEADER ── -->
+<header class="header">
+  <div class="header-left">
+    <button class="hamburger" id="hamburger">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+    </button>
+    <div class="page-title" id="page-title">Admin Dashboard</div>
+  </div>
+  <div class="header-right">
+    <div class="health-dot" id="health-indicator"></div>
+    <span class="health-label" id="health-label">Checking…</span>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- ══ OVERVIEW ══ -->
+  <div class="page active" id="page-overview">
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card cyan" style="height:120px;background:linear-gradient(90deg,rgba(0,212,255,0.04),transparent)"></div>
+      <div class="stat-card violet" style="height:120px;background:linear-gradient(90deg,rgba(139,48,255,0.04),transparent)"></div>
+      <div class="stat-card green" style="height:120px"></div>
+      <div class="stat-card orange" style="height:120px"></div>
+      <div class="stat-card red" style="height:120px"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">New Signups — Last 30 Days</div>
+      <div class="bar-chart" id="signup-chart"><div style="color:var(--muted);font-size:.8rem;width:100%;text-align:center;align-self:center">Loading…</div></div>
+    </div>
+    <div class="overview-grid">
+      <div class="table-card">
+        <div class="table-header"><div class="table-title">Recent Users</div><button class="btn-sm" onclick="navigate('users')">View All →</button></div>
+        <div class="table-wrap"><table><thead><tr><th>User</th><th>Plan</th><th>Joined</th></tr></thead><tbody id="recent-users-body"></tbody></table></div>
+      </div>
+      <div class="table-card">
+        <div class="table-header"><div class="table-title">Recent Projects</div><button class="btn-sm" onclick="navigate('projects')">View All →</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Prompt</th><th>Status</th><th>Date</th></tr></thead><tbody id="recent-projects-body"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ USERS ══ -->
+  <div class="page" id="page-users">
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">Users <span id="users-count" style="color:var(--muted);font-size:.8rem;font-weight:400"></span></div>
+        <div class="table-controls">
+          <input class="search-input" id="user-search" placeholder="Search name or email…" />
+          <select class="filter-select" id="user-plan-filter"><option value="">All Plans</option><option value="free">Free</option><option value="pro">Pro</option></select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Videos</th><th>Joined</th><th>Actions</th></tr></thead>
+        <tbody id="users-table-body"></tbody></table>
+      </div>
+      <div class="pagination"><span class="page-info" id="users-page-info"></span><div class="page-btns" id="users-page-btns"></div></div>
+    </div>
+  </div>
+
+  <!-- ══ ADMINS ══ -->
+  <div class="page" id="page-admins">
+    <div class="table-card">
+      <div class="table-header">
+        <div><div class="table-title">Admin Accounts</div><div class="section-sub">Manage roles and privileges</div></div>
+        <button class="btn-sm violet" id="btn-create-admin" onclick="openCreateAdmin()">+ New Admin</button>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Admin</th><th>Role</th><th>Permissions</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="admins-table-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PROJECTS ══ -->
+  <div class="page" id="page-projects">
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">Projects <span id="projects-count" style="color:var(--muted);font-size:.8rem;font-weight:400"></span></div>
+        <div class="table-controls">
+          <select class="filter-select" id="project-status-filter"><option value="">All Status</option><option value="completed">Completed</option><option value="processing">Processing</option><option value="failed">Failed</option></select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>ID</th><th>Prompt</th><th>Status</th><th>Language</th><th>Created</th></tr></thead>
+        <tbody id="projects-table-body"></tbody></table>
+      </div>
+      <div class="pagination"><span class="page-info" id="projects-page-info"></span><div class="page-btns" id="projects-page-btns"></div></div>
+    </div>
+  </div>
+
+  <!-- ══ HEALTH ══ -->
+  <div class="page" id="page-health">
+    <div class="section-header">
+      <div><div class="section-title">System Health</div><div class="section-sub">Live status of connected services</div></div>
+      <button class="btn-sm" onclick="loadHealth()">↺ Refresh</button>
+    </div>
+    <div class="health-grid" id="health-grid">
+      <div class="health-card" style="height:90px"></div>
+      <div class="health-card" style="height:90px"></div>
+    </div>
+  </div>
+
+  <!-- ══ LOGIN HISTORY ══ -->
+  <div class="page" id="page-logins">
+    <div class="table-card">
+      <div class="table-header">
+        <div><div class="table-title">Login History</div><div class="section-sub">Every login attempt across all users</div></div>
+        <div class="table-controls">
+          <input class="search-input" id="login-search" placeholder="Search email or IP…" />
+          <button class="btn-sm" onclick="loadLogins()">↺ Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Time</th><th>Email</th><th>Action</th><th>Device</th><th>Browser / OS</th><th>IP</th><th>Status</th></tr></thead>
+        <tbody id="logins-table-body"></tbody></table>
+      </div>
+      <div class="pagination"><span class="page-info" id="logins-page-info"></span><div class="page-btns" id="logins-page-btns"></div></div>
+    </div>
+  </div>
+
+  <!-- ══ LIVE SESSIONS ══ -->
+  <div class="page" id="page-sessions">
+    <div class="table-card">
+      <div class="table-header">
+        <div><div class="table-title">Live Sessions <span id="sessions-count" style="color:var(--muted);font-size:.8rem;font-weight:400"></span></div><div class="section-sub">All currently active authenticated sessions</div></div>
+        <button class="btn-sm" onclick="loadSessions()">↺ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>User</th><th>Device</th><th>Browser / OS</th><th>IP</th><th>Started</th><th>Last Active</th><th>Actions</th></tr></thead>
+        <tbody id="sessions-table-body"></tbody></table>
+      </div>
+      <div class="pagination"><span class="page-info" id="sessions-page-info"></span><div class="page-btns" id="sessions-page-btns"></div></div>
+    </div>
+  </div>
+
+  <!-- ══ AUDIT LOG ══ -->
+  <div class="page" id="page-audit">
+    <div class="table-card">
+      <div class="table-header">
+        <div><div class="table-title">Audit Log</div><div class="section-sub">All admin actions are recorded here</div></div>
+        <button class="btn-sm" onclick="loadAudit()">↺ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr></thead>
+        <tbody id="audit-table-body"></tbody></table>
+      </div>
+      <div class="pagination"><span class="page-info" id="audit-page-info"></span><div class="page-btns" id="audit-page-btns"></div></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══ EDIT USER MODAL ══ -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('edit-modal')">✕</button>
+    <div class="modal-title">Edit User</div>
+    <div class="modal-sub" id="edit-modal-email"></div>
+    <input type="hidden" id="edit-user-id" />
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="edit-name" type="text" /></div>
+    <div class="form-group"><label class="form-label">Plan</label><select class="form-select" id="edit-plan"><option value="free">Free</option><option value="pro">Pro</option></select></div>
+    <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="edit-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveUser()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CREATE/EDIT ADMIN MODAL ══ -->
+<div class="modal-overlay" id="admin-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('admin-modal')">✕</button>
+    <div class="modal-title" id="admin-modal-title">Create Admin</div>
+    <div class="modal-sub" id="admin-modal-sub">Grant admin access with specific permissions</div>
+    <input type="hidden" id="admin-modal-mode" value="create" />
+    <input type="hidden" id="admin-edit-id" />
+
+    <div id="admin-create-fields">
+      <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="admin-name" type="text" placeholder="e.g. John Doe" /></div>
+      <div class="form-group"><label class="form-label">Email Address</label><input class="form-input" id="admin-email" type="email" placeholder="admin@example.com" /></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" style="margin-bottom:.65rem">Permissions</label>
+      <div class="perm-grid" id="perm-grid"></div>
+    </div>
+
+    <div class="modal-warn" id="manage-admins-warn" style="display:none">
+      ⚠️ Granting <strong>manage_admins</strong> lets this admin create and modify other admins.
+    </div>
+
+    <div class="form-group" id="send-email-group">
+      <label class="perm-check" style="border:none;padding:0">
+        <input type="checkbox" id="admin-send-email" checked />
+        <label for="admin-send-email" style="font-size:.82rem;color:var(--muted)">Send invite email with credentials</label>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('admin-modal')">Cancel</button>
+      <button class="btn-primary" id="admin-modal-save" onclick="saveAdmin()">Create Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM MODAL ══ -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon" id="confirm-icon">⚠️</div>
+    <div class="confirm-title" id="confirm-title">Are you sure?</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" style="flex:1;padding:.7rem;border:1px solid var(--border);border-radius:9px;background:transparent;cursor:pointer" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-danger" id="confirm-action-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let ME = null;    // current admin user object
+let usersPage = 1, projectsPage = 1, auditPage = 1;
+let usersData = [], adminsData = [], projectsData = [];
+let confirmCallback = null;
+
+// ── INIT ───────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadMe();
+  buildSidebar();
+  navigate('overview');
+  setupListeners();
+  startHealthPoll();
+});
+
+async function loadMe() {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (!res.ok) { window.location.href = '/login'; return; }
+    ME = await res.json();
+    if (!ME.is_admin && ME.role !== 'super_admin') { window.location.href = '/dashboard'; return; }
+
+    document.getElementById('sb-name').textContent   = ME.name || 'Admin';
+    document.getElementById('sb-avatar').textContent = (ME.name || 'A')[0].toUpperCase();
+    document.getElementById('sb-role').textContent   = ME.is_super_admin ? 'Super Admin' : 'Admin';
+    const badge = document.getElementById('role-badge');
+    if (ME.is_super_admin) { badge.textContent = 'Super Admin'; badge.className = 'sidebar-badge badge-super'; }
+    else { badge.textContent = 'Admin'; }
+  } catch { window.location.href = '/login'; }
+}
+
+// ── SIDEBAR BUILD ─────────────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { section: 'Overview' },
+  { id: 'overview', label: 'Dashboard', perm: 'view_dashboard', icon: '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/>' },
+  { id: 'health',   label: 'System Health', perm: 'view_health', icon: '<path d="M3 10h3l2-6 4 12 2-6h3"/>' },
+  { section: 'Management' },
+  { id: 'users',    label: 'Users', perm: 'view_users', icon: '<circle cx="8" cy="6" r="3"/><path d="M2 17c0-4 3-6 6-6s6 2 6 6"/><path d="M15 9c1.5 0 3 1 3 3"/>' },
+  { id: 'admins',   label: 'Admins', perm: 'manage_admins', icon: '<circle cx="10" cy="7" r="3"/><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 11l1.5 1.5L20 10"/>' },
+  { id: 'projects', label: 'Projects', perm: 'view_projects', icon: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 9h14M9 21V9"/>' },
+  { section: 'Logs' },
+  { id: 'audit',    label: 'Audit Log',     perm: 'view_audit_log', icon: '<path d="M9 12h6M9 16h4M6 4h10a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z"/>' },
+  { id: 'logins',   label: 'Login History', perm: 'view_audit_log', icon: '<path d="M15 3H5a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2zM9 7h6M9 11h6M9 15h4"/><circle cx="6" cy="7" r=".5" fill="currentColor"/><circle cx="6" cy="11" r=".5" fill="currentColor"/><circle cx="6" cy="15" r=".5" fill="currentColor"/>' },
+  { id: 'sessions', label: 'Live Sessions', perm: 'view_sessions',  icon: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2.5"/>' },
+  { section: null },
+  { id: null, label: 'Back to Studio', href: '/dashboard', icon: '<path d="M10 3L3 10l7 7M3 10h14"/>' },
+];
+
+function hasPerm(perm) {
+  if (!ME) return false;
+  if (ME.is_super_admin) return true;
+  return (ME.permissions || []).includes(perm);
+}
+
+function buildSidebar() {
+  const nav = document.getElementById('sidebar-nav');
+  nav.innerHTML = '';
+  NAV_ITEMS.forEach(item => {
+    if (item.section !== undefined) {
+      if (item.section) {
+        const lbl = document.createElement('div');
+        lbl.className = 'nav-section-label'; lbl.style.marginTop = '.5rem';
+        lbl.textContent = item.section;
+        nav.appendChild(lbl);
+      }
+      return;
+    }
+    if (item.perm && !hasPerm(item.perm)) return;  // hide if no permission
+    const a = document.createElement('a');
+    a.className = 'nav-item';
+    a.href = item.href || '#';
+    if (item.id) a.dataset.page = item.id;
+    a.innerHTML = `<svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">${item.icon}</svg> ${item.label}`;
+    if (item.id) {
+      a.addEventListener('click', e => { e.preventDefault(); navigate(item.id); closeSidebar(); });
+    }
+    nav.appendChild(a);
+  });
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+const PAGE_TITLES = { overview: 'Admin Dashboard', health: 'System Health', users: 'User Management', admins: 'Admin Accounts', projects: 'Project Management', audit: 'Audit Log', logins: 'Login History', sessions: 'Live Sessions' };
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const el = document.getElementById('page-' + page);
+  if (el) el.classList.add('active');
+  const nav = document.querySelector(`[data-page="${page}"]`);
+  if (nav) nav.classList.add('active');
+  document.getElementById('page-title').textContent = PAGE_TITLES[page] || 'Admin';
+  if (page === 'overview') loadOverview();
+  else if (page === 'health') loadHealth();
+  else if (page === 'users') loadUsers();
+  else if (page === 'admins') loadAdmins();
+  else if (page === 'projects') loadProjects();
+  else if (page === 'audit')    loadAudit();
+  else if (page === 'logins')   loadLogins();
+  else if (page === 'sessions') loadSessions();
+}
+
+// ── MOBILE ────────────────────────────────────────────────────────────────────
+document.getElementById('hamburger').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('open');
+});
+document.getElementById('sidebar-overlay').addEventListener('click', closeSidebar);
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+async function loadOverview() {
+  try {
+    const res = await fetch('/api/admin/stats', { credentials: 'include' });
+    if (!res.ok) { toast('Failed to load stats', 'error'); return; }
+    const d = await res.json();
+    renderStats(d);
+    renderChart(d.signup_trend || []);
+    renderRecentUsers(d.recent_users || []);
+    renderRecentProjects(d.recent_projects || []);
+  } catch { toast('Error loading overview', 'error'); }
+}
+
+function renderStats(d) {
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card cyan"><div class="stat-icon">👥</div><div class="stat-label">Total Users</div><div class="stat-value cyan">${fmtNum(d.total_users||0)}</div><div class="stat-delta"><span>+${d.new_today||0}</span> today</div></div>
+    <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-label">Active Users</div><div class="stat-value green">${fmtNum(d.active_users||0)}</div><div class="stat-delta">${d.total_users?Math.round((d.active_users/d.total_users)*100):0}% of total</div></div>
+    <div class="stat-card violet"><div class="stat-icon">🎬</div><div class="stat-label">Total Videos</div><div class="stat-value violet">${fmtNum(d.total_videos||0)}</div></div>
+    <div class="stat-card orange"><div class="stat-icon">💎</div><div class="stat-label">Pro Users</div><div class="stat-value orange">${fmtNum(d.pro_users||0)}</div><div class="stat-delta">${d.total_users?Math.round((d.pro_users/d.total_users)*100):0}% conversion</div></div>
+    <div class="stat-card red"><div class="stat-icon">📅</div><div class="stat-label">New This Week</div><div class="stat-value red">${fmtNum(d.new_this_week||0)}</div></div>
+  `;
+}
+
+function renderChart(trend) {
+  const c = document.getElementById('signup-chart');
+  if (!trend.length) { c.innerHTML = '<div style="color:var(--muted);font-size:.8rem;width:100%;text-align:center;align-self:center">No signup data yet.</div>'; return; }
+  const max = Math.max(...trend.map(t => t.count), 1);
+  // Show every 5th label to avoid overlap on 30-day chart
+  c.innerHTML = trend.map((t, i) => `
+    <div class="bar-wrap">
+      <div class="bar-val">${t.count||0}</div>
+      <div class="bar" style="height:${Math.max((t.count/max)*100,4)}px" title="${t.date}: ${t.count}"></div>
+      <div class="bar-label">${i%5===0 ? fmtDate(t.date) : ''}</div>
+    </div>
+  `).join('');
+}
+
+function renderRecentUsers(users) {
+  const b = document.getElementById('recent-users-body');
+  if (!users.length) { b.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:1.5rem">No users yet</td></tr>'; return; }
+  b.innerHTML = users.map(u => `<tr>
+    <td><div class="user-cell"><div class="avatar-sm">${(u.name||u.email||'U')[0].toUpperCase()}</div><div><div class="user-name">${esc(u.name||'—')}</div><div class="user-email">${esc(u.email)}</div></div></div></td>
+    <td><span class="badge badge-${u.plan||'free'}">${u.plan||'free'}</span></td>
+    <td style="font-size:.78rem;color:var(--muted)">${relDate(u.created_at)}</td>
+  </tr>`).join('');
+}
+
+function renderRecentProjects(projects) {
+  const b = document.getElementById('recent-projects-body');
+  if (!projects.length) { b.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:1.5rem">No projects yet</td></tr>'; return; }
+  b.innerHTML = projects.map(p => {
+    const st = p.status || 'unknown';
+    const cls = st==='completed'?'done':st==='processing'?'proc':'fail';
+    return `<tr>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((p.prompt||'').substring(0,50))}</td>
+      <td><span class="badge badge-${cls}">${st}</span></td>
+      <td style="font-size:.78rem;color:var(--muted)">${relDate(p.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── USERS ─────────────────────────────────────────────────────────────────────
+async function loadUsers(page=1) {
+  usersPage = page;
+  const search = document.getElementById('user-search').value.trim();
+  const plan   = document.getElementById('user-plan-filter').value;
+  let url = `/api/admin/users?page=${page}&limit=15`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  if (plan)   url += `&plan=${plan}`;
+
+  const body = document.getElementById('users-table-body');
+  body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) { toast('Failed to load users', 'error'); return; }
+    const d = await res.json();
+    usersData = d.users || [];
+    renderUsersTable(usersData);
+    renderPagination('users', page, d.total, 15, 'loadUsers');
+    document.getElementById('users-count').textContent = `(${d.total||0})`;
+  } catch { toast('Error loading users', 'error'); }
+}
+
+function renderUsersTable(users) {
+  const b = document.getElementById('users-table-body');
+  const canEdit   = hasPerm('edit_users');
+  const canDelete = hasPerm('delete_users');
+  if (!users.length) { b.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div><div>No users found</div></div></td></tr>'; return; }
+  b.innerHTML = users.map(u => `<tr>
+    <td><div class="user-cell"><div class="avatar-sm">${(u.name||u.email||'U')[0].toUpperCase()}</div><div><div class="user-name">${esc(u.name||'—')}</div><div class="user-email">${esc(u.email)}</div></div></div></td>
+    <td><span class="badge badge-${u.plan||'free'}">${u.plan||'free'}</span></td>
+    <td><span class="badge ${u.is_active!==false?'badge-active':'badge-inactive'}">${u.is_active!==false?'Active':'Inactive'}</span></td>
+    <td style="font-family:var(--mono);font-size:.78rem">${fmtNum(u.total_videos_generated||0)}</td>
+    <td style="font-size:.78rem;color:var(--muted)">${relDate(u.created_at)}</td>
+    <td><div class="action-btns">
+      <button class="btn-action" title="Edit" onclick="openEditModal('${u.user_id}')" ${canEdit?'':'disabled'}>
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16l1.5-1.5 8.5-8.5-1.5-1.5-8.5 8.5L4 16zm9-11l1.5 1.5"/></svg>
+      </button>
+      <button class="btn-action warn" title="${u.is_active!==false?'Deactivate':'Activate'}" onclick="toggleUserStatus('${u.user_id}',${u.is_active!==false})" ${canEdit?'':'disabled'}>
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M10 7v3l2 2"/></svg>
+      </button>
+      <button class="btn-action danger" title="Delete" onclick="openConfirm('Delete user ${esc(u.email)}?','This permanently deletes the account.',()=>deleteUser('${u.user_id}'))" ${canDelete?'':'disabled'}>
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8v9h8V8M4 5h12M8 5V3h4v2"/></svg>
+      </button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function openEditModal(userId) {
+  const u = usersData.find(u => u.user_id === userId);
+  if (!u) return;
+  document.getElementById('edit-user-id').value      = u.user_id;
+  document.getElementById('edit-modal-email').textContent = u.email;
+  document.getElementById('edit-name').value         = u.name || '';
+  document.getElementById('edit-plan').value         = u.plan || 'free';
+  document.getElementById('edit-status').value       = u.is_active !== false ? 'active' : 'inactive';
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+async function saveUser() {
+  const id = document.getElementById('edit-user-id').value;
+  const payload = {
+    name:      document.getElementById('edit-name').value.trim(),
+    plan:      document.getElementById('edit-plan').value,
+    is_active: document.getElementById('edit-status').value === 'active',
+  };
+  const res = await apiFetch(`/api/admin/users/${id}`, 'PUT', payload);
+  if (res.ok) { toast('User updated', 'success'); closeModal('edit-modal'); loadUsers(usersPage); }
+  else { const d = await res.json(); toast(d.error || 'Failed', 'error'); }
+}
+
+async function toggleUserStatus(userId, currentlyActive) {
+  const res = await apiFetch(`/api/admin/users/${userId}`, 'PUT', { is_active: !currentlyActive });
+  if (res.ok) { toast(`User ${!currentlyActive?'activated':'deactivated'}`, 'success'); loadUsers(usersPage); }
+  else { const d = await res.json(); toast(d.error || 'Failed', 'error'); }
+}
+
+async function deleteUser(userId) {
+  const res = await apiFetch(`/api/admin/users/${userId}`, 'DELETE');
+  if (res.ok) { toast('User deleted', 'success'); loadUsers(usersPage); }
+  else { const d = await res.json(); toast(d.error || 'Failed', 'error'); }
+}
+
+// ── ADMINS ────────────────────────────────────────────────────────────────────
+async function loadAdmins() {
+  const body = document.getElementById('admins-table-body');
+  body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const res = await fetch('/api/admin/admins', { credentials: 'include' });
+    if (!res.ok) { toast('Failed to load admins', 'error'); return; }
+    const d = await res.json();
+    adminsData = d.admins || [];
+    renderAdminsTable(adminsData);
+  } catch { toast('Error loading admins', 'error'); }
+}
+
+function renderAdminsTable(admins) {
+  const b = document.getElementById('admins-table-body');
+  if (!admins.length) { b.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🔐</div><div>No admins found</div></div></td></tr>'; return; }
+  b.innerHTML = admins.map(u => {
+    const isSuper  = u.role === 'super_admin';
+    const isMe     = ME && u.user_id === ME.user_id;
+    const perms    = u.permissions || [];
+    const permHtml = isSuper
+      ? '<span class="perm-chip" style="background:rgba(255,159,67,0.08);border-color:rgba(255,159,67,0.2);color:var(--orange)">All Permissions</span>'
+      : (perms.length ? perms.map(p => `<span class="perm-chip">${esc(p)}</span>`).join('') : '<span style="color:var(--muted);font-size:.75rem">none</span>');
+    return `<tr>
+      <td><div class="user-cell">
+        <div class="avatar-sm ${isSuper?'super':''}">${(u.name||u.email||'A')[0].toUpperCase()}</div>
+        <div><div class="user-name">${esc(u.name||'—')} ${isMe?'<span style="font-size:.7rem;color:var(--muted)">(you)</span>':''}</div><div class="user-email">${esc(u.email)}</div></div>
+      </div></td>
+      <td><span class="badge ${isSuper?'badge-super-role':'badge-admin-role'}">${isSuper?'Super Admin':'Admin'}</span></td>
+      <td><div class="perm-chips">${permHtml}</div></td>
+      <td><span class="badge ${u.is_active!==false?'badge-active':'badge-inactive'}">${u.is_active!==false?'Active':'Inactive'}</span></td>
+      <td><div class="action-btns">
+        <button class="btn-action" title="Edit permissions" onclick="openEditAdmin('${u.user_id}')" ${isSuper?'disabled':''}>
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16l1.5-1.5 8.5-8.5-1.5-1.5-8.5 8.5L4 16zm9-11l1.5 1.5"/></svg>
+        </button>
+        <button class="btn-action danger" title="Revoke admin role" onclick="openConfirm('Revoke admin role?','${esc(u.email)} will lose all admin access.',()=>revokeAdmin('${u.user_id}'))" ${isSuper||isMe?'disabled':''}>
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l8 8M14 6l-8 8"/></svg>
+        </button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function openCreateAdmin() {
+  document.getElementById('admin-modal-title').textContent = 'Create Admin';
+  document.getElementById('admin-modal-sub').textContent   = 'Grant admin access with specific permissions';
+  document.getElementById('admin-modal-mode').value        = 'create';
+  document.getElementById('admin-create-fields').style.display = '';
+  document.getElementById('admin-name').value  = '';
+  document.getElementById('admin-email').value = '';
+  document.getElementById('send-email-group').style.display = '';
+  document.getElementById('admin-modal-save').textContent = 'Create Admin';
+  buildPermGrid([]);
+  document.getElementById('admin-modal').classList.add('open');
+}
+
+function openEditAdmin(userId) {
+  const u = adminsData.find(a => a.user_id === userId);
+  if (!u) return;
+  document.getElementById('admin-modal-title').textContent  = 'Edit Admin Permissions';
+  document.getElementById('admin-modal-sub').textContent    = u.email;
+  document.getElementById('admin-modal-mode').value         = 'edit';
+  document.getElementById('admin-edit-id').value            = u.user_id;
+  document.getElementById('admin-create-fields').style.display = 'none';
+  document.getElementById('send-email-group').style.display = 'none';
+  document.getElementById('admin-modal-save').textContent   = 'Save Permissions';
+  buildPermGrid(u.permissions || []);
+  document.getElementById('admin-modal').classList.add('open');
+}
+
+function buildPermGrid(selected) {
+  const allPerms  = ME.all_permissions || [];
+  const isSuperMe = ME.is_super_admin;
+  const grid = document.getElementById('perm-grid');
+  grid.innerHTML = allPerms.map(p => {
+    const checked = selected.includes(p);
+    const locked  = p === 'manage_admins' && !isSuperMe;
+    return `<label class="perm-check ${checked?'checked':''}" id="perm-label-${p}">
+      <input type="checkbox" id="perm-${p}" value="${p}" ${checked?'checked':''} ${locked?'disabled':''} onchange="onPermChange(this,'${p}')" />
+      <label for="perm-${p}">${p}</label>
+    </label>`;
+  }).join('');
+}
+
+function onPermChange(cb, perm) {
+  const lbl = document.getElementById('perm-label-' + perm);
+  if (lbl) lbl.classList.toggle('checked', cb.checked);
+  const warnEl = document.getElementById('manage-admins-warn');
+  if (perm === 'manage_admins') warnEl.style.display = cb.checked ? '' : 'none';
+}
+
+function getSelectedPerms() {
+  return Array.from(document.querySelectorAll('#perm-grid input[type=checkbox]:checked')).map(c => c.value);
+}
+
+async function saveAdmin() {
+  const mode = document.getElementById('admin-modal-mode').value;
+  if (mode === 'create') {
+    const name  = document.getElementById('admin-name').value.trim();
+    const email = document.getElementById('admin-email').value.trim();
+    const perms = getSelectedPerms();
+    const sendEmail = document.getElementById('admin-send-email').checked;
+    if (!name || !email) { toast('Name and email are required', 'error'); return; }
+    const res = await apiFetch('/api/admin/admins', 'POST', { name, email, permissions: perms, send_email: sendEmail });
+    const d   = await res.json();
+    if (res.ok) {
+      toast(d.action === 'promoted' ? 'User promoted to admin' : 'Admin created & invite sent', 'success');
+      closeModal('admin-modal'); loadAdmins();
+    } else { toast(d.error || 'Failed', 'error'); }
+  } else {
+    const id    = document.getElementById('admin-edit-id').value;
+    const perms = getSelectedPerms();
+    const res   = await apiFetch(`/api/admin/admins/${id}`, 'PUT', { permissions: perms });
+    const d     = await res.json();
+    if (res.ok) { toast('Permissions updated', 'success'); closeModal('admin-modal'); loadAdmins(); }
+    else { toast(d.error || 'Failed', 'error'); }
+  }
+}
+
+async function revokeAdmin(userId) {
+  const res = await apiFetch(`/api/admin/admins/${userId}`, 'DELETE');
+  if (res.ok) { toast('Admin role revoked', 'success'); loadAdmins(); }
+  else { const d = await res.json(); toast(d.error || 'Failed', 'error'); }
+}
+
+// ── PROJECTS ──────────────────────────────────────────────────────────────────
+async function loadProjects(page=1) {
+  projectsPage = page;
+  const status = document.getElementById('project-status-filter').value;
+  let url = `/api/admin/projects?page=${page}&limit=15`;
+  if (status) url += `&status=${status}`;
+  const body = document.getElementById('projects-table-body');
+  body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) { toast('Failed', 'error'); return; }
+    const d = await res.json();
+    projectsData = d.projects || [];
+    const b = document.getElementById('projects-table-body');
+    if (!projectsData.length) { b.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🎬</div><div>No projects found</div></div></td></tr>'; }
+    else b.innerHTML = projectsData.map(p => {
+      const st = p.status||'unknown'; const cls = st==='completed'?'done':st==='processing'?'proc':'fail';
+      return `<tr>
+        <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${esc((p.project_id||'').substring(0,12))}…</td>
+        <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((p.prompt||'').substring(0,60))}${(p.prompt||'').length>60?'…':''}</td>
+        <td><span class="badge badge-${cls}">${st}</span></td>
+        <td style="font-size:.8rem;color:var(--muted)">${esc(p.language||'—')}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${relDate(p.created_at)}</td>
+      </tr>`;
+    }).join('');
+    renderPagination('projects', page, d.total, 15, 'loadProjects');
+    document.getElementById('projects-count').textContent = `(${d.total||0})`;
+  } catch { toast('Error', 'error'); }
+}
+
+// ── HEALTH ────────────────────────────────────────────────────────────────────
+async function loadHealth() {
+  const g = document.getElementById('health-grid');
+  g.innerHTML = '<div class="health-card" style="height:90px"></div>'.repeat(4);
+  try {
+    const res = await fetch('/api/admin/health', { credentials: 'include' });
+    const d   = await res.json();
+    const services = [
+      { label: 'MongoDB',     icon: '🗄️', ok: d.mongodb === 'ok',  detail: d.mongodb },
+      { label: 'Ollama AI',   icon: '🤖', ok: d.ollama === 'ok',   detail: d.ollama },
+      { label: 'Auth System', icon: '🔐', ok: true,                detail: 'ok' },
+      { label: 'API Server',  icon: '⚡', ok: true,                detail: 'ok' },
+    ];
+    g.innerHTML = services.map(s => `
+      <div class="health-card">
+        <div class="health-icon-wrap ${s.ok?'ok':'err'}">${s.icon}</div>
+        <div><div class="health-info-label">${s.label}</div><div class="health-info-val ${s.ok?'ok':'err'}">${s.ok?'Operational':'Offline'}</div></div>
+      </div>
+    `).join('');
+    updateHealthDot(services.every(s => s.ok));
+  } catch { toast('Failed to check health', 'error'); }
+}
+
+async function startHealthPoll() {
+  const poll = async () => {
+    try {
+      const res = await fetch('/api/admin/health', { credentials: 'include' });
+      const d   = await res.json();
+      updateHealthDot(d.mongodb === 'ok' && d.ollama === 'ok', d.mongodb !== 'ok');
+    } catch { updateHealthDot(false, true); }
+  };
+  await poll();
+  setInterval(poll, 30000);
+}
+
+function updateHealthDot(allOk, dbDown=false) {
+  const dot = document.getElementById('health-indicator');
+  const lbl = document.getElementById('health-label');
+  dot.className = 'health-dot' + (allOk ? '' : dbDown ? ' err' : ' warn');
+  lbl.textContent = allOk ? 'All systems go' : dbDown ? 'DB offline' : 'AI degraded';
+}
+
+// ── AUDIT LOG ─────────────────────────────────────────────────────────────────
+async function loadAudit(page=1) {
+  auditPage = page;
+  const body = document.getElementById('audit-table-body');
+  body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const res = await fetch(`/api/admin/audit-log?page=${page}&limit=50`, { credentials: 'include' });
+    if (!res.ok) { toast('Failed to load audit log', 'error'); return; }
+    const d = await res.json();
+    const logs = d.logs || [];
+    if (!logs.length) { body.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div><div>No audit entries yet</div></div></td></tr>'; }
+    else body.innerHTML = logs.map(l => `<tr>
+      <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap">${fmtTs(l.created_at)}</td>
+      <td style="font-size:.82rem">${esc(l.admin_email||'')}</td>
+      <td><span class="audit-action ${l.action||''}">${esc(l.action||'')}</span></td>
+      <td style="font-size:.78rem;color:var(--muted)">${esc(l.target_email||l.target_id||'—')}</td>
+      <td style="font-size:.75rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.details||'')}</td>
+      <td style="font-family:var(--mono);font-size:.7rem;color:var(--muted2)">${esc(l.ip||'')}</td>
+    </tr>`).join('');
+    renderPagination('audit', page, d.total, 50, 'loadAudit');
+  } catch { toast('Error loading audit log', 'error'); }
+}
+
+// ── PAGINATION ────────────────────────────────────────────────────────────────
+function renderPagination(prefix, current, total, limit, fn) {
+  const pages = Math.ceil(total / limit);
+  const info  = document.getElementById(`${prefix}-page-info`);
+  const btns  = document.getElementById(`${prefix}-page-btns`);
+  if (info) info.textContent = `${Math.min((current-1)*limit+1,total)}–${Math.min(current*limit,total)} of ${total}`;
+  if (!btns) return;
+  if (pages <= 1) { btns.innerHTML = ''; return; }
+  const visible = [];
+  for (let i = Math.max(1, current-2); i <= Math.min(pages, current+2); i++) visible.push(i);
+  btns.innerHTML = `
+    <button class="page-btn" onclick="${fn}(${current-1})" ${current<=1?'disabled':''}>‹</button>
+    ${visible.map(p => `<button class="page-btn ${p===current?'active':''}" onclick="${fn}(${p})">${p}</button>`).join('')}
+    ${visible[visible.length-1] < pages ? `<button class="page-btn" disabled>…</button><button class="page-btn" onclick="${fn}(${pages})">${pages}</button>` : ''}
+    <button class="page-btn" onclick="${fn}(${current+1})" ${current>=pages?'disabled':''}>›</button>
+  `;
+}
+
+// ── CONFIRM MODAL ─────────────────────────────────────────────────────────────
+function openConfirm(title, msg, cb) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent   = msg;
+  confirmCallback = cb;
+  document.getElementById('confirm-action-btn').onclick = () => { closeConfirm(); cb(); };
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); confirmCallback = null; }
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+// ── LISTENERS ─────────────────────────────────────────────────────────────────
+function setupListeners() {
+  let t;
+  document.getElementById('user-search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => loadUsers(1), 400); });
+  document.getElementById('user-plan-filter').addEventListener('change', () => loadUsers(1));
+  document.getElementById('project-status-filter').addEventListener('change', () => loadProjects(1));
+}
+
+// ── LOGIN HISTORY ─────────────────────────────────────────────────────────────
+let loginsPage = 1;
+async function loadLogins(page=1) {
+  loginsPage = page;
+  const search = document.getElementById('login-search')?.value.trim() || '';
+  let url = `/api/admin/login-history?page=${page}&limit=50`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  const body = document.getElementById('logins-table-body');
+  body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) { toast('Failed to load login history', 'error'); return; }
+    const d = await res.json();
+    const logs = d.logs || [];
+    if (!logs.length) {
+      body.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div><div>No login records yet</div></div></td></tr>';
+    } else {
+      body.innerHTML = logs.map(l => {
+        const ts     = fmtTs(l.created_at);
+        const ok     = l.success;
+        const action = { login:'Sign in', register:'Register', logout:'Sign out', password_reset:'Pwd reset', password_reset_request:'Pwd request' }[l.action] || (l.action||'login');
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap">${ts}</td>
+          <td style="font-size:.82rem">${esc(l.email||'—')}</td>
+          <td style="font-size:.8rem;color:var(--muted)">${action}</td>
+          <td style="font-size:.8rem;color:var(--muted)">${esc(l.device||'—')}</td>
+          <td style="font-size:.8rem;color:var(--muted)">${esc(l.browser||'—')} / ${esc(l.os||'—')}</td>
+          <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${esc(l.ip||'—')}</td>
+          <td><span style="font-family:var(--mono);font-size:.72rem;font-weight:600;color:${ok?'var(--green)':'var(--red)'}">
+            ${ok ? '✓ OK' : '✗ ' + esc(l.failure_reason||'failed')}
+          </span></td>
+        </tr>`;
+      }).join('');
+    }
+    renderPagination('logins', page, d.total, 50, 'loadLogins');
+  } catch { toast('Error loading login history', 'error'); }
+}
+
+// ── LIVE SESSIONS ─────────────────────────────────────────────────────────────
+let sessionsPage = 1;
+async function loadSessions(page=1) {
+  sessionsPage = page;
+  const body = document.getElementById('sessions-table-body');
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const res = await fetch(`/api/admin/sessions?page=${page}&limit=50`, { credentials: 'include' });
+    if (!res.ok) { toast('Failed to load sessions', 'error'); return; }
+    const d = await res.json();
+    const sess = d.sessions || [];
+    document.getElementById('sessions-count').textContent = `(${d.total||0})`;
+    if (!sess.length) {
+      body.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🔌</div><div>No active sessions</div></div></td></tr>';
+    } else {
+      body.innerHTML = sess.map(s => `<tr>
+        <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${esc(s.user_id||'—')}</td>
+        <td style="font-size:.8rem">${esc(s.device||'—')}</td>
+        <td style="font-size:.8rem;color:var(--muted)">${esc(s.browser||'—')} / ${esc(s.os||'—')}</td>
+        <td style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">${esc(s.ip||'—')}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${fmtTs(s.created_at)}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${fmtTs(s.last_active)}</td>
+        <td><button class="btn-action danger" title="Force sign out" onclick="killSession('${s.session_id}', this)">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l8 8M14 6l-8 8"/></svg>
+        </button></td>
+      </tr>`).join('');
+    }
+    renderPagination('sessions', page, d.total, 50, 'loadSessions');
+  } catch { toast('Error loading sessions', 'error'); }
+}
+
+async function killSession(sid, btn) {
+  btn.disabled = true;
+  const res = await apiFetch(`/api/admin/sessions/${sid}`, 'DELETE');
+  if (res.ok) { toast('Session terminated', 'success'); btn.closest('tr').remove(); }
+  else { const d = await res.json(); toast(d.error||'Failed', 'error'); btn.disabled = false; }
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────────────────
+async function logout() {
+  try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch {}
+  window.location.href = '/login';
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+async function apiFetch(url, method, body) {
+  return fetch(url, {
+    method, credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+function toast(msg, type='success') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<div class="toast-dot"></div>${esc(msg)}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#x27;');
+}
+function fmtNum(n) { return Number(n).toLocaleString(); }
+function fmtDate(s) {
+  if (!s) return '';
+  return new Date(s).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+}
+function fmtTs(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  return isNaN(d) ? s : d.toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function relDate(s) {
+  if (!s) return '—';
+  const d = typeof s === 'object' && s.$date ? new Date(s.$date) : new Date(s);
+  if (isNaN(d)) return '—';
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days === 0) return 'Today'; if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days/30)}mo ago`;
+  return `${Math.floor(days/365)}y ago`;
+}
+</script>
+</body>
+</html>

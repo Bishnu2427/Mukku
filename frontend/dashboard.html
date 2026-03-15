@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Dashboard — Mukku AI Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050912; --bg2: #080e1c; --card: #0c1424; --card2: #111a2e;
+      --cyan: #00d4ff; --violet: #8b30ff; --green: #00c896; --orange: #f59e0b;
+      --red: #ff4d6d;
+      --border: rgba(0,212,255,0.09); --border-hov: rgba(0,212,255,0.22);
+      --text: #d8eeff; --muted: rgba(216,238,255,0.45); --dimmed: rgba(216,238,255,0.25);
+      --sidebar-w: 240px; --header-h: 60px;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    html { scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 2px; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+    /* grid bg */
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+      background-size: 64px 64px; animation: gs 30s linear infinite;
+    }
+    @keyframes gs { to { background-position: 64px 64px; } }
+
+    /* ── layout ── */
+    .layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+    /* sidebar */
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: rgba(8,14,28,0.9); border-right: 1px solid var(--border);
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+      display: flex; flex-direction: column;
+      transition: transform .3s;
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: .55rem; padding: 1.1rem 1.4rem;
+      border-bottom: 1px solid var(--border); text-decoration: none; flex-shrink: 0;
+    }
+    .sidebar-logo-text {
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem;
+      background: linear-gradient(135deg, var(--violet), var(--cyan));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .sidebar-nav { flex: 1; padding: 1rem 0; overflow-y: auto; }
+    .nav-section-label {
+      font-family: var(--mono); font-size: .62rem; font-weight: 500; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--dimmed); padding: .6rem 1.4rem .3rem; margin-top: .5rem;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: .75rem; padding: .65rem 1.4rem;
+      font-size: .85rem; font-weight: 500; color: var(--muted); text-decoration: none;
+      border-left: 2px solid transparent; transition: all .2s; cursor: pointer;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(0,212,255,0.04); }
+    .nav-item.active { color: var(--cyan); border-left-color: var(--cyan); background: rgba(0,212,255,0.06); }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .7; }
+    .nav-item.active svg { opacity: 1; }
+
+    .sidebar-footer { padding: 1rem 1.4rem; border-top: 1px solid var(--border); }
+    .user-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .8rem; }
+    .user-avatar {
+      width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--violet), var(--cyan));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .85rem; color: #fff; flex-shrink: 0;
+    }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name  { font-size: .83rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-plan  { font-family: var(--mono); font-size: .65rem; color: var(--cyan); }
+    .logout-btn {
+      width: 100%; padding: .5rem; border: 1px solid var(--border); border-radius: 8px;
+      background: none; color: var(--muted); font-family: 'Inter', sans-serif; font-size: .8rem;
+      cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: .4rem;
+    }
+    .logout-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,77,109,0.05); }
+
+    /* header */
+    .header {
+      position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: var(--header-h); z-index: 40;
+      background: rgba(5,9,18,0.85); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      padding: 0 1.8rem; gap: 1rem;
+    }
+    .header::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), var(--violet), var(--cyan), transparent);
+      background-size: 200% auto; opacity: .25; animation: hla 6s linear infinite;
+    }
+    @keyframes hla { to { background-position: 200% center; } }
+    .header-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; flex: 1; }
+    .header-badge {
+      font-family: var(--mono); font-size: .68rem; padding: .28rem .7rem;
+      background: rgba(0,212,255,0.07); border: 1px solid rgba(0,212,255,0.15);
+      border-radius: 6px; color: var(--cyan);
+    }
+    .menu-btn { display: none; background: none; border: none; color: var(--text); cursor: pointer; padding: .25rem; }
+
+    /* main */
+    .main { margin-left: var(--sidebar-w); padding-top: var(--header-h); min-height: 100vh; }
+    .page { display: none; padding: 2rem 1.8rem; }
+    .page.active { display: block; }
+
+    /* page header */
+    .page-header { margin-bottom: 2rem; }
+    .page-eyebrow { font-family: var(--mono); font-size: .68rem; color: var(--cyan); letter-spacing: .08em; text-transform: uppercase; margin-bottom: .4rem; }
+    .page-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.6rem; font-weight: 700; letter-spacing: -.03em; }
+    .page-sub { font-size: .88rem; color: var(--muted); margin-top: .3rem; }
+
+    /* stat cards */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.4rem 1.2rem;
+      position: relative; overflow: hidden; transition: border-color .2s, box-shadow .2s;
+    }
+    .stat-card:hover { border-color: var(--border-hov); box-shadow: 0 0 20px rgba(0,212,255,0.05); }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: 14px 14px 0 0; }
+    .stat-card.cyan::before  { background: linear-gradient(90deg, var(--cyan), transparent); }
+    .stat-card.violet::before { background: linear-gradient(90deg, var(--violet), transparent); }
+    .stat-card.green::before  { background: linear-gradient(90deg, var(--green), transparent); }
+    .stat-card.orange::before { background: linear-gradient(90deg, var(--orange), transparent); }
+    .stat-label { font-family: var(--mono); font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .6rem; }
+    .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; letter-spacing: -.04em; line-height: 1; }
+    .stat-card.cyan  .stat-value { color: var(--cyan); }
+    .stat-card.violet .stat-value { color: var(--violet); }
+    .stat-card.green  .stat-value { color: var(--green); }
+    .stat-card.orange .stat-value { color: var(--orange); }
+    .stat-note { font-size: .75rem; color: var(--dimmed); margin-top: .4rem; }
+
+    /* section card */
+    .section-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden; margin-bottom: 1.5rem;
+    }
+    .section-head {
+      padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    .section-head h3 { font-family: 'Space Grotesk', sans-serif; font-size: .95rem; font-weight: 600; }
+    .section-body { padding: 1.4rem; }
+
+    /* projects grid */
+    .projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+    .project-card {
+      background: var(--card2); border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; transition: border-color .2s, transform .2s;
+    }
+    .project-card:hover { border-color: var(--border-hov); transform: translateY(-2px); }
+    .project-thumb {
+      height: 120px; background: linear-gradient(135deg, rgba(139,48,255,0.2), rgba(0,212,255,0.15));
+      display: flex; align-items: center; justify-content: center; position: relative;
+    }
+    .project-status-dot {
+      position: absolute; top: .6rem; right: .6rem; width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .project-status-dot.completed { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .project-status-dot.processing { background: var(--cyan); animation: pulse 1.5s ease-in-out infinite; }
+    .project-status-dot.failed { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
+    .project-info { padding: .9rem 1rem; }
+    .project-prompt { font-size: .8rem; color: var(--text); line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: .5rem; }
+    .project-meta { display: flex; align-items: center; justify-content: space-between; }
+    .project-date { font-family: var(--mono); font-size: .66rem; color: var(--dimmed); }
+    .project-actions { display: flex; gap: .4rem; }
+    .action-btn {
+      width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
+      background: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); transition: all .2s;
+    }
+    .action-btn:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.06); }
+    .action-btn svg { width: 12px; height: 12px; }
+    .play-circle {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .play-circle::after { content:''; border:solid transparent; border-width:7px 0 7px 12px; border-left-color:rgba(255,255,255,.85); margin-left:2px; }
+
+    /* empty state */
+    .empty-state { text-align: center; padding: 3rem 2rem; }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .empty-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 600; margin-bottom: .5rem; }
+    .empty-sub { font-size: .85rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: .4rem; padding: .7rem 1.5rem;
+      background: linear-gradient(135deg, var(--violet), var(--cyan)); border: none;
+      border-radius: 10px; color: #fff; font-family: 'Space Grotesk', sans-serif;
+      font-size: .88rem; font-weight: 600; cursor: pointer; text-decoration: none;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,212,255,0.25); }
+
+    /* profile form */
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .form-group { margin-bottom: 1.2rem; }
+    .form-label { display: block; font-family: var(--mono); font-size: .68rem; font-weight: 500; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; margin-bottom: .4rem; }
+    .form-input {
+      width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 10px; padding: .75rem 1rem; color: var(--text);
+      font-family: 'Inter', sans-serif; font-size: .9rem; outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .form-input::placeholder { color: var(--dimmed); }
+    .form-input:focus { border-color: rgba(0,212,255,0.4); box-shadow: 0 0 0 3px rgba(0,212,255,0.07); }
+    .form-input:disabled { opacity: .5; cursor: not-allowed; }
+    .form-hint { font-size: .75rem; color: var(--dimmed); margin-top: .35rem; }
+    .btn-save {
+      display: inline-flex; align-items: center; gap: .4rem; padding: .65rem 1.4rem;
+      background: linear-gradient(135deg, var(--violet), var(--cyan)); border: none;
+      border-radius: 8px; color: #fff; font-family: 'Space Grotesk', sans-serif;
+      font-size: .85rem; font-weight: 600; cursor: pointer; transition: transform .2s, box-shadow .2s, opacity .2s;
+    }
+    .btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,212,255,0.2); }
+    .btn-save:disabled { opacity: .6; cursor: not-allowed; }
+    .toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 200;
+      background: var(--card); border: 1px solid rgba(0,200,150,0.3);
+      border-radius: 10px; padding: .75rem 1.2rem; font-size: .85rem;
+      color: var(--green); display: flex; align-items: center; gap: .5rem;
+      transform: translateY(80px); opacity: 0; transition: all .3s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { border-color: rgba(255,77,109,.3); color: var(--red); }
+
+    /* plan card */
+    .plan-card {
+      background: linear-gradient(135deg, rgba(139,48,255,0.08), rgba(0,212,255,0.06));
+      border: 1px solid rgba(0,212,255,0.12); border-radius: 14px; padding: 1.6rem;
+      display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    }
+    .plan-badge {
+      font-family: var(--mono); font-size: .65rem; font-weight: 500; letter-spacing: .1em;
+      text-transform: uppercase; padding: .25rem .7rem;
+      background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 100px; color: var(--cyan);
+    }
+    .plan-info h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: .3rem; }
+    .plan-info p  { font-size: .85rem; color: var(--muted); }
+
+    /* responsive */
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { transform: translateX(-240px); --sidebar-w: 240px; }
+      .sidebar.open { transform: translateX(0); }
+      .header { left: 0; }
+      .main  { margin-left: 0; }
+      .menu-btn { display: flex; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .profile-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .stat-grid { grid-template-columns: 1fr 1fr; gap: .75rem; }
+      .stat-value { font-size: 1.6rem; }
+      .page { padding: 1.4rem 1rem; }
+      .projects-grid { grid-template-columns: 1fr; }
+    }
+
+    /* session item */
+    .session-item {
+      display: flex; align-items: center; gap: 1rem;
+      padding: .9rem 1.5rem; border-bottom: 1px solid rgba(0,212,255,0.04);
+    }
+    .session-item:last-child { border-bottom: none; }
+    .session-icon { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .session-icon.desktop { background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.15); }
+    .session-icon.mobile  { background: rgba(139,48,255,0.08); border: 1px solid rgba(139,48,255,0.2); }
+    .session-details { flex: 1; min-width: 0; }
+    .session-name { font-size: .88rem; font-weight: 500; }
+    .session-meta { font-family: var(--mono); font-size: .68rem; color: var(--muted); margin-top: .2rem; }
+    .session-current { font-family: var(--mono); font-size: .62rem; padding: .15rem .5rem; border-radius: 4px; background: rgba(0,200,150,0.1); border: 1px solid rgba(0,200,150,0.25); color: #00c896; }
+    .session-kill { background: none; border: 1px solid rgba(255,77,109,0.2); border-radius: 6px; color: rgba(255,77,109,.6); font-size: .75rem; padding: .3rem .65rem; cursor: pointer; transition: all .2s; }
+    .session-kill:hover { border-color: #ff4d6d; color: #ff4d6d; background: rgba(255,77,109,0.07); }
+
+    /* login history row colors */
+    .lh-success { color: #00c896; }
+    .lh-fail    { color: #ff4d6d; }
+
+    /* overlay */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 45; }
+    .overlay.show { display: block; }
+
+    /* skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+  </style>
+</head>
+<body>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <a href="/" class="sidebar-logo">
+      <img src="/static/mukku_logo.png" alt="" height="26" onerror="this.style.display='none'" />
+      <span class="sidebar-logo-text">Mukku AI</span>
+    </a>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a class="nav-item active" id="nav-overview" onclick="showPage('overview')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg>
+        Overview
+      </a>
+      <a class="nav-item" id="nav-videos" onclick="showPage('videos')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="16" height="12" rx="2"/><path d="M8 8l4 2-4 2V8z" fill="currentColor"/></svg>
+        My Videos
+      </a>
+
+      <div class="nav-section-label">Account</div>
+      <a class="nav-item" id="nav-profile" onclick="showPage('profile')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="7" r="3"/><path d="M3 17c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>
+        Profile
+      </a>
+      <a class="nav-item" id="nav-plan" onclick="showPage('plan')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.5L10 14.5 5.1 17.2l.9-5.5L2 7.8l5.5-.8z"/></svg>
+        Plan
+      </a>
+      <a class="nav-item" id="nav-security" onclick="showPage('security')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l7 3v5c0 4-3 7-7 8C7 17 4 14 3 10V5l7-3z"/></svg>
+        Security
+      </a>
+      <a class="nav-item" href="/studio">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l3 3"/></svg>
+        Open Studio
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="user-avatar" id="sidebar-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-plan" id="sidebar-plan">free</div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="logout()">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 3H4a1 1 0 00-1 1v12a1 1 0 001 1h3M14 7l4 3-4 3M8 10h9"/></svg>
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Header -->
+  <header class="header">
+    <button class="menu-btn" onclick="toggleSidebar()" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+    </button>
+    <span class="header-title" id="page-title">Overview</span>
+    <div class="header-badge" id="user-email-badge">loading…</div>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ── Overview ── -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <div class="page-eyebrow">Dashboard</div>
+        <h1 class="page-title" id="welcome-title">Welcome back</h1>
+        <p class="page-sub">Here's an overview of your creative activity.</p>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card cyan">
+          <div class="stat-label">Total Videos</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-note">All time</div>
+        </div>
+        <div class="stat-card violet">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="stat-month">—</div>
+          <div class="stat-note">Videos generated</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Current Plan</div>
+          <div class="stat-value" style="font-size:1.3rem;text-transform:capitalize" id="stat-plan">—</div>
+          <div class="stat-note" id="plan-note">Free tier</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">Member Since</div>
+          <div class="stat-value" style="font-size:1.1rem;line-height:1.3" id="stat-joined">—</div>
+          <div class="stat-note" id="stat-last-login">Last login: —</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head">
+          <h3>Recent Videos</h3>
+          <a class="btn-primary" href="/studio" style="padding:.45rem 1rem;font-size:.8rem;">+ New Video</a>
+        </div>
+        <div class="section-body">
+          <div id="recent-projects-wrap">
+            <div class="projects-grid" id="recent-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── My Videos ── -->
+    <div class="page" id="page-videos">
+      <div class="page-header">
+        <div class="page-eyebrow">Library</div>
+        <h1 class="page-title">My Videos</h1>
+        <p class="page-sub">All videos you've generated.</p>
+      </div>
+      <div class="section-card">
+        <div class="section-head">
+          <h3 id="videos-count">Videos</h3>
+          <a class="btn-primary" href="/studio" style="padding:.45rem 1rem;font-size:.8rem;">+ New Video</a>
+        </div>
+        <div class="section-body">
+          <div class="projects-grid" id="all-projects-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Profile ── -->
+    <div class="page" id="page-profile">
+      <div class="page-header">
+        <div class="page-eyebrow">Account</div>
+        <h1 class="page-title">Profile Settings</h1>
+      </div>
+      <div class="section-card" style="max-width:580px;">
+        <div class="section-head"><h3>Personal Information</h3></div>
+        <div class="section-body">
+          <form id="profile-form">
+            <div class="form-group">
+              <label class="form-label">Full name</label>
+              <input id="pf-name" type="text" class="form-input" placeholder="Your name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email address</label>
+              <input id="pf-email" type="email" class="form-input" disabled />
+              <div class="form-hint">Email cannot be changed.</div>
+            </div>
+            <button type="submit" class="btn-save" id="pf-save-btn">Save Changes</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="section-card" style="max-width:580px;margin-top:1.5rem;">
+        <div class="section-head"><h3>Change Password</h3></div>
+        <div class="section-body">
+          <form id="pw-form">
+            <div class="form-group">
+              <label class="form-label">Current password</label>
+              <input id="pw-old" type="password" class="form-input" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">New password</label>
+              <input id="pw-new" type="password" class="form-input" placeholder="Min. 8 characters" autocomplete="new-password" />
+            </div>
+            <button type="submit" class="btn-save" id="pw-save-btn">Update Password</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Plan ── -->
+    <div class="page" id="page-plan">
+      <div class="page-header">
+        <div class="page-eyebrow">Billing</div>
+        <h1 class="page-title">Your Plan</h1>
+      </div>
+      <div class="plan-card" style="max-width:560px;margin-bottom:1.5rem;">
+        <div>
+          <div class="plan-badge" id="plan-badge-large">FREE</div>
+        </div>
+        <div class="plan-info">
+          <h3 id="plan-title">Free Plan</h3>
+          <p id="plan-desc">Generate AI videos with core features. No credit card required.</p>
+        </div>
+      </div>
+      <div class="section-card" style="max-width:560px;">
+        <div class="section-head"><h3>Usage This Month</h3></div>
+        <div class="section-body">
+          <div style="margin-bottom:.6rem;display:flex;justify-content:space-between;font-size:.85rem;">
+            <span style="color:var(--muted)">Videos generated</span>
+            <span style="color:var(--cyan);font-weight:600" id="usage-count">0</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">
+            <div id="usage-bar" style="height:100%;background:linear-gradient(90deg,var(--violet),var(--cyan));border-radius:4px;transition:width .6s;width:0%"></div>
+          </div>
+          <div style="font-size:.75rem;color:var(--dimmed);margin-top:.5rem;" id="usage-note">Resets on the 1st of each month</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Security ── -->
+    <div class="page" id="page-security">
+      <div class="page-header">
+        <div class="page-eyebrow">Account Security</div>
+        <h1 class="page-title">Security &amp; Sessions</h1>
+        <p class="page-sub">Monitor your active sessions and login history.</p>
+      </div>
+
+      <!-- Active Sessions -->
+      <div class="section-card" style="max-width:760px;margin-bottom:1.5rem;">
+        <div class="section-head" style="display:flex;align-items:center;justify-content:space-between;">
+          <h3>Active Sessions</h3>
+          <button id="logout-all-btn" onclick="logoutAllSessions()" style="background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.3);color:#ff4d6d;padding:.4rem .9rem;border-radius:7px;font-size:.8rem;cursor:pointer;transition:all .2s;">
+            Sign out all other devices
+          </button>
+        </div>
+        <div class="section-body" style="padding:0;">
+          <div id="sessions-list" style="padding:.5rem 0;">
+            <div style="padding:1rem 1.5rem;color:var(--muted);font-size:.85rem;">Loading sessions…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Login History -->
+      <div class="section-card" style="max-width:760px;">
+        <div class="section-head"><h3>Login History</h3></div>
+        <div class="section-body" style="padding:0;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;min-width:520px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.7rem 1.25rem;text-align:left;font-weight:500;">Time</th>
+                <th style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.7rem 1rem;text-align:left;font-weight:500;">Action</th>
+                <th style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.7rem 1rem;text-align:left;font-weight:500;">Device</th>
+                <th style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.7rem 1rem;text-align:left;font-weight:500;">Browser / OS</th>
+                <th style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.7rem 1rem;text-align:left;font-weight:500;">IP</th>
+                <th style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.7rem 1rem;text-align:left;font-weight:500;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="login-history-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let userData = null;
+  let allProjects = [];
+
+  // ── init ──
+  async function init() {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!res.ok) { window.location.href = '/login'; return; }
+      userData = await res.json();
+      populateUser();
+      loadProjects();
+    } catch { window.location.href = '/login'; }
+  }
+
+  function populateUser() {
+    const name  = userData.name  || 'User';
+    const email = userData.email || '';
+    const plan  = userData.plan  || 'free';
+    const total = userData.total_videos_generated || 0;
+    const month = userData.videos_this_month || 0;
+
+    document.getElementById('welcome-title').textContent = `Welcome back, ${name.split(' ')[0]}!`;
+    document.getElementById('sidebar-name').textContent   = name;
+    document.getElementById('sidebar-plan').textContent   = plan.toUpperCase();
+    document.getElementById('sidebar-avatar').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('user-email-badge').textContent = email;
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-month').textContent = month;
+    document.getElementById('stat-plan').textContent  = plan;
+
+    const joined = userData.created_at ? new Date(userData.created_at).toLocaleDateString('en', {month:'short',year:'numeric'}) : '—';
+    document.getElementById('stat-joined').textContent = joined;
+
+    const lastLogin = userData.last_login ? new Date(userData.last_login).toLocaleDateString('en', {month:'short',day:'numeric'}) : 'Today';
+    document.getElementById('stat-last-login').textContent = 'Last login: ' + lastLogin;
+
+    // profile form
+    document.getElementById('pf-name').value  = name;
+    document.getElementById('pf-email').value = email;
+
+    // plan page
+    document.getElementById('plan-badge-large').textContent = plan.toUpperCase();
+    document.getElementById('plan-title').textContent = plan.charAt(0).toUpperCase() + plan.slice(1) + ' Plan';
+    document.getElementById('usage-count').textContent = month;
+    const limit = plan === 'free' ? 10 : plan === 'pro' ? 100 : 999;
+    const pct   = Math.min(100, Math.round((month / limit) * 100));
+    document.getElementById('usage-bar').style.width = pct + '%';
+    document.getElementById('usage-note').textContent = `${month} / ${limit === 999 ? '∞' : limit} videos this month`;
+  }
+
+  async function loadProjects() {
+    try {
+      const res  = await fetch('/projects?limit=50', { credentials: 'include' });
+      const data = await res.json();
+      allProjects = data.projects || [];
+      renderProjects(allProjects.slice(0, 6), 'recent-grid');
+      renderProjects(allProjects, 'all-projects-grid');
+      document.getElementById('videos-count').textContent = `Videos (${allProjects.length})`;
+    } catch { /* no-op */ }
+  }
+
+  function renderProjects(projects, containerId) {
+    const wrap = document.getElementById(containerId);
+    if (!projects.length) {
+      wrap.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-icon">🎬</div>
+        <div class="empty-title">No videos yet</div>
+        <p class="empty-sub">Create your first AI video in seconds.</p>
+        <a href="/studio" class="btn-primary">Open Studio →</a>
+      </div>`;
+      return;
+    }
+    wrap.innerHTML = projects.map(p => {
+      const date     = p.created_at ? new Date(p.created_at).toLocaleDateString('en',{month:'short',day:'numeric'}) : '—';
+      const status   = p.status || 'unknown';
+      const dotClass = status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'processing';
+      const rawPrompt = (p.prompt || '').slice(0, 90) + ((p.prompt||'').length > 90 ? '\u2026' : '');
+      const pid      = esc(p.project_id);  // safe for attribute use
+      return `<div class="project-card">
+        <div class="project-thumb">
+          ${status === 'completed' ? `<a href="/video-player.html?id=${pid}"><div class="play-circle"></div></a>` : `<div style="font-size:.75rem;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">${esc(status)}</div>`}
+          <div class="project-status-dot ${dotClass}"></div>
+        </div>
+        <div class="project-info">
+          <div class="project-prompt">${esc(rawPrompt) || '(no prompt)'}</div>
+          <div class="project-meta">
+            <span class="project-date">${date}</span>
+            <div class="project-actions">
+              ${status === 'completed' ? `
+                <button class="action-btn" title="Download" onclick="downloadVideo('${pid}')">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3M2 12h12"/></svg>
+                </button>` : ''}
+              <button class="action-btn" title="Delete" onclick="deleteProject('${pid}', this)" style="color:rgba(255,77,109,.5)">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l.5 9h5L11 4"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function downloadVideo(id) { window.open(`/video/${id}?download=true`, '_blank'); }
+  function deleteProject(id, btn) {
+    if (!confirm('Delete this video? This cannot be undone.')) return;
+    btn.closest('.project-card').style.opacity = '.4';
+    // Server-side delete not yet implemented; remove from UI only
+    btn.closest('.project-card').remove();
+    showToast('Video removed from view.', false);
+  }
+
+  // ── navigation ──
+  const PAGES = { overview: 'Overview', videos: 'My Videos', profile: 'Profile Settings', plan: 'Plan', security: 'Security' };
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + name)?.classList.add('active');
+    document.getElementById('nav-'  + name)?.classList.add('active');
+    document.getElementById('page-title').textContent = PAGES[name] || name;
+    closeSidebar();
+    if (name === 'security') loadSecurityPage();
+  }
+
+  // ── sidebar ──
+  function toggleSidebar() {
+    const s = document.getElementById('sidebar');
+    const o = document.getElementById('overlay');
+    s.classList.toggle('open');
+    o.classList.toggle('show');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+  }
+
+  // ── logout ──
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = '/login';
+  }
+
+  // ── profile form ──
+  document.getElementById('profile-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn  = document.getElementById('pf-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: document.getElementById('pf-name').value.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error || 'Save failed.', true); }
+      else {
+        showToast('Profile saved!');
+        userData.name = document.getElementById('pf-name').value.trim();
+        document.getElementById('sidebar-name').textContent   = userData.name;
+        document.getElementById('sidebar-avatar').textContent = userData.name.charAt(0).toUpperCase();
+      }
+    } catch { showToast('Network error.', true); }
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  });
+
+  // ── password form ──
+  document.getElementById('pw-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn  = document.getElementById('pw-save-btn');
+    btn.disabled = true; btn.textContent = 'Updating…';
+    try {
+      const res = await fetch('/api/user/change-password', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_password: document.getElementById('pw-old').value, new_password: document.getElementById('pw-new').value }),
+      });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error || 'Update failed.', true); }
+      else { showToast('Password updated!'); document.getElementById('pw-old').value = ''; document.getElementById('pw-new').value = ''; }
+    } catch { showToast('Network error.', true); }
+    btn.disabled = false; btn.textContent = 'Update Password';
+  });
+
+  // ── toast ──
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = (isError ? '✗ ' : '✓ ') + msg;
+    t.className = 'toast' + (isError ? ' error' : '') + ' show';
+    setTimeout(() => { t.className = 'toast' + (isError ? ' error' : ''); }, 3000);
+  }
+
+  // ── security page ──
+  async function loadSecurityPage() {
+    await Promise.all([loadSessions(), loadLoginHistory()]);
+  }
+
+  async function loadSessions() {
+    const el = document.getElementById('sessions-list');
+    try {
+      const res  = await fetch('/api/user/sessions', { credentials: 'include' });
+      const data = await res.json();
+      const sessions = data.sessions || [];
+      if (!sessions.length) {
+        el.innerHTML = '<div style="padding:1rem 1.5rem;color:var(--muted);font-size:.85rem;">No active sessions found.</div>';
+        return;
+      }
+      el.innerHTML = sessions.map(s => {
+        const isMobile  = s.device === 'Mobile' || s.device === 'Tablet';
+        const icon      = isMobile ? '📱' : '💻';
+        const iconClass = isMobile ? 'mobile' : 'desktop';
+        const lastActive = s.last_active ? relTime(s.last_active) : '—';
+        const created    = s.created_at  ? new Date(s.created_at).toLocaleDateString('en', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+        return `<div class="session-item">
+          <div class="session-icon ${iconClass}">${icon}</div>
+          <div class="session-details">
+            <div class="session-name">
+              ${esc(s.browser||'Unknown')} on ${esc(s.os||'Unknown')}
+              ${s.is_current ? '<span class="session-current">This device</span>' : ''}
+            </div>
+            <div class="session-meta">${esc(s.ip||'—')} · Last active ${lastActive} · Started ${created}</div>
+          </div>
+          ${s.is_current ? '' : `<button class="session-kill" onclick="revokeSession('${s.session_id}', this)">Sign out</button>`}
+        </div>`;
+      }).join('');
+    } catch {
+      el.innerHTML = '<div style="padding:1rem 1.5rem;color:var(--muted);font-size:.85rem;">Failed to load sessions.</div>';
+    }
+  }
+
+  async function revokeSession(sid, btn) {
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      await fetch(`/api/user/sessions/${sid}`, { method: 'DELETE', credentials: 'include' });
+      btn.closest('.session-item').remove();
+      showToast('Session signed out.');
+    } catch { showToast('Failed.', true); btn.disabled = false; btn.textContent = 'Sign out'; }
+  }
+
+  async function logoutAllSessions() {
+    const btn = document.getElementById('logout-all-btn');
+    btn.disabled = true; btn.textContent = 'Signing out…';
+    try {
+      const res  = await fetch('/api/user/sessions/logout-all', { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      showToast(`Signed out ${data.revoked || 0} other device(s).`);
+      loadSessions();
+    } catch { showToast('Failed.', true); }
+    btn.disabled = false; btn.textContent = 'Sign out all other devices';
+  }
+
+  async function loadLoginHistory() {
+    const body = document.getElementById('login-history-body');
+    try {
+      const res  = await fetch('/api/user/login-history?limit=20', { credentials: 'include' });
+      const data = await res.json();
+      const logs = data.logs || [];
+      if (!logs.length) {
+        body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--muted);font-size:.85rem;">No login history yet.</td></tr>';
+        return;
+      }
+      body.innerHTML = logs.map(l => {
+        const ts      = l.created_at ? new Date(l.created_at).toLocaleString('en', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+        const ok      = l.success;
+        const action  = l.action || 'login';
+        const actionLabel = { login:'Sign in', register:'Register', logout:'Sign out', password_reset:'Pwd reset', password_reset_request:'Pwd request' }[action] || action;
+        return `<tr style="border-bottom:1px solid rgba(0,212,255,0.04);">
+          <td style="padding:.7rem 1.25rem;font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap">${ts}</td>
+          <td style="padding:.7rem 1rem;font-size:.82rem">${actionLabel}</td>
+          <td style="padding:.7rem 1rem;font-size:.8rem;color:var(--muted)">${esc(l.device||'—')}</td>
+          <td style="padding:.7rem 1rem;font-size:.8rem;color:var(--muted)">${esc(l.browser||'—')} / ${esc(l.os||'—')}</td>
+          <td style="padding:.7rem 1rem;font-family:var(--mono);font-size:.72rem;color:var(--muted)">${esc(l.ip||'—')}</td>
+          <td style="padding:.7rem 1rem;">
+            <span class="${ok ? 'lh-success' : 'lh-fail'}" style="font-family:var(--mono);font-size:.72rem;font-weight:600;">
+              ${ok ? '✓ OK' : '✗ ' + esc(l.failure_reason||'failed')}
+            </span>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--muted);">Failed to load.</td></tr>';
+    }
+  }
+
+  function relTime(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1)  return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#x27;');
+  }
+
+  init();
+</script>
+</body>
+</html>

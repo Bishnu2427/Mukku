@@ -16,16 +16,21 @@ sys.path.insert(0, str(ROOT))
 
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 
 from database.mongo_connection import create_project, get_project, list_projects
+from database.user_model import _ensure_indexes, seed_super_admin
 from services.pipeline_manager import run_pipeline
+from backend.auth import auth_bp
+from backend.admin_api import admin_bp
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+    format="%(asctime)s  %(levelname)-8s  %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -33,12 +38,77 @@ FRONTEND_DIR = ROOT / "frontend"
 VIDEOS_DIR   = ROOT / "media" / "videos"
 THUMBS_DIR   = ROOT / "media" / "thumbs"
 
+# Allowed upload extensions and max size (50 MB)
+ALLOWED_UPLOAD_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "mp4", "mov", "wav", "mp3"}
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
 app = Flask(
     __name__,
     static_folder=str(FRONTEND_DIR),
     static_url_path="/static",
 )
-CORS(app)
+
+# CORS — restrict to the same origin in production; allow all in dev
+_app_origin = os.getenv("APP_URL", "http://localhost:7000").rstrip("/")
+CORS(app,
+     supports_credentials=True,
+     origins=[_app_origin, "http://localhost:7000", "http://127.0.0.1:7000"])
+
+app.secret_key = os.getenv("JWT_SECRET", "change-me-in-production")
+
+# ── Rate limiter (in-memory; swap storage_uri for Redis in production) ─────────
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],   # no global limit — only on specific endpoints
+    storage_uri="memory://",
+)
+
+# ── Security headers ───────────────────────────────────────────────────────────
+@app.after_request
+def set_security_headers(response):
+    # Prevent MIME-type sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # Deny framing (clickjacking)
+    response.headers["X-Frame-Options"] = "DENY"
+    # Legacy XSS filter (for older browsers)
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # Don't send referrer to external sites
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Only send HSTS if actually on HTTPS
+    if os.getenv("APP_URL", "").startswith("https://"):
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Content Security Policy — allows inline styles/scripts needed for the SPA
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    return response
+
+# Register blueprints
+app.register_blueprint(auth_bp)
+app.register_blueprint(admin_bp)
+
+# ── Per-endpoint rate limits ───────────────────────────────────────────────────
+# Auth endpoints: strict limits to prevent brute force / spam
+limiter.limit("10 per minute")(app.view_functions["auth.api_login"])
+limiter.limit("10 per minute")(app.view_functions["auth.api_verify_otp"])
+limiter.limit("5 per minute")(app.view_functions["auth.api_register"])
+limiter.limit("5 per minute")(app.view_functions["auth.api_forgot_password"])
+limiter.limit("5 per minute")(app.view_functions["auth.api_reset_password"])
+
+# Ensure MongoDB indexes and seed super admin on startup
+try:
+    _ensure_indexes()
+    seed_super_admin()
+except Exception as _idx_err:
+    logger.warning("Could not initialise DB: %s", _idx_err)
 
 VALID_TONES        = {"educational", "professional", "motivational", "casual", "entertaining"}
 VALID_STYLES       = {"photorealistic", "cinematic", "documentary"}
@@ -105,21 +175,38 @@ def generate():
         "language":      raw_settings.get("language", "en")            if raw_settings.get("language", "en") in VALID_LANGUAGES else "en",
     }
 
-    project_id = uuid.uuid4().hex[:10]
-    create_project(project_id, prompt, settings)
+    # Attach user_id if request is authenticated
+    from backend.auth import get_current_user as _get_user
+    current_user = _get_user()
+    user_id      = current_user["user_id"] if current_user else None
 
-    # Save any user-uploaded media files
+    project_id = uuid.uuid4().hex[:10]
+    create_project(project_id, prompt, settings, user_id=user_id)
+
+    # Save any user-uploaded media files (validated)
     uploaded_paths = []
     if uploaded_files:
         upload_dir = UPLOADS_DIR / project_id
         upload_dir.mkdir(parents=True, exist_ok=True)
         for f in uploaded_files:
-            if f and f.filename:
-                filename = secure_filename(f.filename)
-                dest = upload_dir / filename
-                f.save(str(dest))
-                uploaded_paths.append(str(dest))
-                logger.info("Saved user upload: %s", dest)
+            if not f or not f.filename:
+                continue
+            # Validate extension
+            ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+            if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+                return jsonify({"error": f"File type '.{ext}' is not allowed."}), 400
+            # Validate size (read into memory limit)
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(0)
+            if size > MAX_UPLOAD_BYTES:
+                return jsonify({"error": f"File too large (max {MAX_UPLOAD_BYTES // 1024 // 1024} MB)."}), 413
+            # Save with UUID prefix to prevent collisions and path traversal
+            safe_name = f"{uuid.uuid4().hex[:8]}_{secure_filename(f.filename)}"
+            dest = upload_dir / safe_name
+            f.save(str(dest))
+            uploaded_paths.append(str(dest))
+            logger.info("Saved user upload: %s (%d bytes)", dest, size)
 
     thread = threading.Thread(
         target=run_pipeline,

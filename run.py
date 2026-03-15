@@ -24,12 +24,5 @@ if __name__ == "__main__":
     port  = int(os.getenv("FLASK_PORT", 7000))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 
-    print(f"""
-╔══════════════════════════════════════════════════╗
-║        AI Content Agent — starting up            ║
-╠══════════════════════════════════════════════════╣
-║  URL   →  http://localhost:{port:<22}║
-║  Debug →  {str(debug):<38}║
-╚══════════════════════════════════════════════════╝
-""")
+    print(f"AI Content Agent starting on http://localhost:{port}  (debug={debug})")
     app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False)
