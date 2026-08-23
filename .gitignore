@@ -1,5 +1,19 @@
-# Environment
+# Environment — never commit secrets
 .env
+.env.*
+!.env.example
+
+# MCP server config — contains the Stitch API key
+.mcp.json
+
+# Frontend (React / Vite)
+node_modules/
+Frontend/dist/
+Frontend/tsconfig.tsbuildinfo
+.vite/
+
+# Legacy vanilla frontend, kept for reference only — not part of the build
+legacy_frontend_backup/
 
 # Python
 __pycache__/

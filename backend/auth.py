@@ -6,8 +6,12 @@ Security hardened: rate-limited, brute-force locked, 2FA, strong passwords.
 import os
 import re
 import inspect
+import secrets
 import smtplib
 import logging
+import urllib.parse
+import urllib.request
+import json as _json
 from datetime import datetime, timezone, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -15,7 +19,9 @@ from functools import wraps
 
 import bcrypt
 import jwt
-from flask import Blueprint, request, jsonify, make_response, send_file, abort
+from flask import (
+    Blueprint, request, jsonify, make_response, send_file, abort, redirect, session,
+)
 
 from database.user_model import (
     ALL_PERMISSIONS,
@@ -29,6 +35,12 @@ from database.user_model import (
     create_reset_token, get_reset_token, consume_reset_token,
     create_otp, verify_otp, consume_otp,
     check_lockout, record_failed_attempt, clear_lockout,
+    create_or_get_google_user,
+)
+
+from backend.extensions import (
+    limiter, safe_int, LIMIT_LOGIN, LIMIT_OTP, LIMIT_REGISTER,
+    LIMIT_FORGOT_PASSWORD, LIMIT_RESET_PASSWORD,
 )
 
 logger   = logging.getLogger(__name__)
@@ -97,7 +109,7 @@ def _set_auth_cookie(response, token: str, remember: bool = False) -> None:
         "mukku_token", token,
         max_age   = max_age,
         httponly  = True,
-        samesite  = "Strict",          # was Lax — CSRF hardening
+        samesite  = "Lax",             # Strict breaks OAuth redirects
         secure    = is_https,          # True in production HTTPS
         path      = "/",
     )
@@ -211,7 +223,6 @@ def require_permission(perm: str):
 def _auth_fail(msg: str, code: int):
     if request.path.startswith("/api/"):
         return jsonify({"error": msg}), code
-    from flask import redirect
     return redirect("/login")
 
 
@@ -359,10 +370,15 @@ def _admin_invite_email(to_addr: str, name: str, temp_password: str, login_url: 
 
 # ── page routes ───────────────────────────────────────────────────────────────
 
-def _fe(filename: str):
+def _fe(_filename: str = ""):
+    """Serve the React SPA shell.
+
+    Every page route below still runs its own auth/RBAC logic first — the
+    redirect to /login and the 404 for non-admins are unchanged. Only the file
+    that gets returned changed: one shell instead of eight HTML pages.
+    """
     from pathlib import Path
-    fe_dir = Path(__file__).resolve().parent.parent / "frontend"
-    return send_file(fe_dir / filename)
+    return send_file(Path(__file__).resolve().parent.parent / "Frontend" / "dist" / "index.html")
 
 
 @auth_bp.route("/login")
@@ -412,6 +428,7 @@ def admin_page():
 # ── API: register ─────────────────────────────────────────────────────────────
 
 @auth_bp.route("/api/auth/register", methods=["POST"])
+@limiter.limit(LIMIT_REGISTER)
 def api_register():
     data     = request.get_json(silent=True) or {}
     name     = data.get("name", "").strip()
@@ -450,6 +467,7 @@ def api_register():
 # ── API: login (step 1 — credentials) ────────────────────────────────────────
 
 @auth_bp.route("/api/auth/login", methods=["POST"])
+@limiter.limit(LIMIT_LOGIN)
 def api_login():
     data     = request.get_json(silent=True) or {}
     email    = data.get("email", "").strip().lower()
@@ -464,6 +482,10 @@ def api_login():
     if lockout:
         locked_until = lockout.get("locked_until")
         if locked_until:
+            # Belt-and-braces: the client is tz_aware, but an existing row
+            # written before that change can still come back naive.
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=timezone.utc)
             wait_mins = max(1, int((locked_until - datetime.now(timezone.utc)).total_seconds() / 60))
             return jsonify({
                 "error": f"Too many failed attempts. Account locked for {wait_mins} more minute(s)."
@@ -481,7 +503,16 @@ def api_login():
                           "account disabled", user_id=user["user_id"])
         return jsonify({"error": "Your account has been disabled. Contact support."}), 403
 
-    if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+    stored_hash = user.get("password_hash")
+    if not stored_hash:
+        # Registered via Google and never set a password.
+        log_login_attempt(email, False, _client_ip(), _user_agent(),
+                          "no password set (google account)", user_id=user["user_id"])
+        return jsonify({
+            "error": "This account signs in with Google. Use the Google button above."
+        }), 401
+
+    if not bcrypt.checkpw(password.encode(), stored_hash.encode()):
         log_login_attempt(email, False, _client_ip(), _user_agent(),
                           "wrong password", user_id=user["user_id"])
         remaining = record_failed_attempt(email)
@@ -512,6 +543,7 @@ def api_login():
 # ── API: login (step 2 — verify OTP) ─────────────────────────────────────────
 
 @auth_bp.route("/api/auth/verify-otp", methods=["POST"])
+@limiter.limit(LIMIT_OTP)
 def api_verify_otp():
     data      = request.get_json(silent=True) or {}
     otp_token = data.get("otp_token", "").strip()
@@ -594,6 +626,7 @@ def api_me(current_user, session_id):
 # ── API: forgot / reset password ──────────────────────────────────────────────
 
 @auth_bp.route("/api/auth/forgot-password", methods=["POST"])
+@limiter.limit(LIMIT_FORGOT_PASSWORD)
 def api_forgot_password():
     data  = request.get_json(silent=True) or {}
     email = data.get("email", "").strip().lower()
@@ -615,6 +648,7 @@ def api_forgot_password():
 
 
 @auth_bp.route("/api/auth/reset-password", methods=["POST"])
+@limiter.limit(LIMIT_RESET_PASSWORD)
 def api_reset_password():
     data     = request.get_json(silent=True) or {}
     token    = data.get("token", "").strip()
@@ -677,7 +711,14 @@ def api_change_password(current_user, session_id):
     old_password = data.get("old_password", "")
     new_password = data.get("new_password", "")
 
-    if not bcrypt.checkpw(old_password.encode(), current_user["password_hash"].encode()):
+    stored_hash = current_user.get("password_hash")
+    if not stored_hash:
+        return jsonify({
+            "error": "This account has no password yet — it signs in with Google. "
+                     "Use the password reset flow to set one."
+        }), 400
+
+    if not bcrypt.checkpw(old_password.encode(), stored_hash.encode()):
         return jsonify({"error": "Current password is incorrect."}), 400
 
     pw_err = _validate_password(new_password)
@@ -727,8 +768,8 @@ def api_logout_all_sessions(current_user, session_id):
 @auth_bp.route("/api/user/login-history", methods=["GET"])
 @require_auth
 def api_user_login_history(current_user, _session_id):
-    page  = max(1, int(request.args.get("page", 1)))
-    limit = min(50, int(request.args.get("limit", 20)))
+    page  = safe_int(request.args.get("page"), 1, 1, 10_000)
+    limit = safe_int(request.args.get("limit"), 20, 1, 50)
     logs, total = get_user_login_history(current_user["user_id"], page, limit)
     return jsonify({"logs": logs, "total": total, "page": page})
 
@@ -743,6 +784,155 @@ def api_user_profile_log(current_user, _session_id):
 @require_auth
 def api_user_plan_history(current_user, _session_id):
     return jsonify({"history": get_user_plan_history(current_user["user_id"])})
+
+
+# ── API: current user info ────────────────────────────────────────────────────
+
+@auth_bp.route("/api/user/me", methods=["GET"])
+@require_auth
+def api_user_me(current_user, _session_id):
+    """Return safe current-user fields for the frontend."""
+    plan        = current_user.get("plan", "free")
+    plan_limits = {"free": 3, "starter": 5, "pro": 25, "enterprise": -1, "super_admin": -1}
+    limit       = plan_limits.get(plan, 3)
+    used        = current_user.get("videos_this_month", 0)
+    return jsonify({
+        "user_id":    current_user["user_id"],
+        "name":       current_user.get("name", ""),
+        "email":      current_user.get("email", ""),
+        "avatar":     current_user.get("avatar"),
+        "plan":       plan,
+        "role":       current_user.get("role", "user"),
+        "quota": {
+            "used":  used,
+            "limit": limit,
+            "remaining": max(0, limit - used) if limit != -1 else -1,
+        },
+        "has_google": bool(current_user.get("google_id")),
+        "has_password": bool(current_user.get("password_hash")),
+    })
+
+
+# ── API: Google OAuth 2.0 ─────────────────────────────────────────────────────
+
+_GOOGLE_AUTH_URL  = "https://accounts.google.com/o/oauth2/v2/auth"
+_GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+_GOOGLE_INFO_URL  = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+
+@auth_bp.route("/api/auth/google", methods=["GET"])
+def api_google_login():
+    """Step 1 — redirect browser to Google consent screen."""
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+    if not client_id:
+        return jsonify({"error": "Google login is not configured on this server."}), 503
+
+    # OWASP A07 / A01: without a state parameter the callback accepts any code,
+    # so an attacker can complete the flow with THEIR code in the victim's
+    # browser and silently link/log in as themselves (login CSRF). The state is
+    # a one-time value bound to the user's session cookie.
+    state = secrets.token_urlsafe(32)
+    session["oauth_state"] = state
+
+    callback_url = f"{_app_url()}/api/auth/google/callback"
+    params = urllib.parse.urlencode({
+        "client_id":     client_id,
+        "redirect_uri":  callback_url,
+        "response_type": "code",
+        "scope":         "openid email profile",
+        "access_type":   "online",
+        "prompt":        "select_account",
+        "state":         state,
+    })
+    return redirect(f"{_GOOGLE_AUTH_URL}?{params}")
+
+
+@auth_bp.route("/api/auth/google/callback", methods=["GET"])
+def api_google_callback():
+    """Step 2 — exchange code for tokens, find/create user, set session."""
+    client_id     = os.getenv("GOOGLE_CLIENT_ID", "")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    code          = request.args.get("code", "")
+
+    # Verify the CSRF state before doing anything else. compare_digest avoids
+    # leaking a match position through timing. The value is single-use.
+    expected = session.pop("oauth_state", None)
+    supplied = request.args.get("state", "")
+    if not expected or not supplied or not secrets.compare_digest(expected, supplied):
+        logger.warning("Google callback rejected: OAuth state mismatch from %s", _client_ip())
+        return redirect("/login?error=google_state")
+
+    if not code:
+        return redirect(f"/login?error=google_cancelled")
+    if not client_id or not client_secret:
+        return redirect(f"/login?error=google_not_configured")
+
+    callback_url = f"{_app_url()}/api/auth/google/callback"
+
+    # Exchange code for access_token
+    try:
+        token_data = urllib.parse.urlencode({
+            "code":          code,
+            "client_id":     client_id,
+            "client_secret": client_secret,
+            "redirect_uri":  callback_url,
+            "grant_type":    "authorization_code",
+        }).encode()
+        req = urllib.request.Request(
+            _GOOGLE_TOKEN_URL,
+            data=token_data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            token_resp = _json.loads(resp.read())
+    except Exception as exc:
+        logger.error("Google token exchange failed: %s", exc)
+        return redirect("/login?error=google_failed")
+
+    access_token = token_resp.get("access_token", "")
+    if not access_token:
+        return redirect("/login?error=google_no_token")
+
+    # Fetch user info
+    try:
+        info_req = urllib.request.Request(
+            _GOOGLE_INFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        with urllib.request.urlopen(info_req, timeout=10) as resp:
+            info = _json.loads(resp.read())
+    except Exception as exc:
+        logger.error("Google userinfo fetch failed: %s", exc)
+        return redirect("/login?error=google_failed")
+
+    google_id = info.get("sub", "")
+    email     = info.get("email", "")
+    name      = info.get("name", "") or info.get("given_name", "")
+    picture   = info.get("picture", "")
+
+    if not google_id or not email:
+        return redirect("/login?error=google_missing_info")
+
+    # Find or create user
+    user = create_or_get_google_user(google_id, email, name, picture)
+    if not user or not user.get("is_active"):
+        return redirect("/login?error=account_disabled")
+
+    # Create session
+    session_id = _make_session_id()
+    expires    = _session_expires(remember=True)
+    create_session(
+        user["user_id"], session_id, _client_ip(), _user_agent(), expires,
+    )
+    log_login_attempt(email, True, _client_ip(), _user_agent(),
+                      user_id=user["user_id"], action="google_login")
+
+    token = _make_token(user["user_id"], session_id, expires_hours=168)
+    destination = "/admin" if user.get("is_admin") else "/dashboard"
+    resp = redirect(destination)
+    _set_auth_cookie(resp, token, remember=True)
+    return resp
 
 
 # ── private helpers ───────────────────────────────────────────────────────────

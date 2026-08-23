@@ -8,6 +8,7 @@ from datetime import datetime
 import bcrypt
 from flask import Blueprint, request, jsonify
 
+from backend.extensions import safe_int
 from backend.auth import (
     require_admin, require_permission, require_super_admin,
     _is_super_admin, _app_url, _admin_invite_email,
@@ -32,7 +33,18 @@ def _projects_col():
 
 
 def _client_ip() -> str:
-    return request.headers.get("X-Forwarded-For", request.remote_addr or "")
+    """Client IP for the audit trail.
+
+    OWASP A09: this used to trust X-Forwarded-For unconditionally, so any
+    caller could forge the IP recorded against their own admin actions —
+    poisoning the one log you would rely on during an incident. Now gated on
+    TRUST_PROXY, matching backend/auth.py.
+    """
+    if os.getenv("TRUST_PROXY", "false").lower() == "true":
+        fwd = request.headers.get("X-Forwarded-For", "")
+        if fwd:
+            return fwd.split(",")[0].strip()
+    return request.remote_addr or ""
 
 
 # ── stats ─────────────────────────────────────────────────────────────────────
@@ -92,8 +104,8 @@ def api_admin_stats(current_user):
 @admin_bp.route("/api/admin/users", methods=["GET"])
 @require_permission("view_users")
 def api_admin_list_users(current_user):
-    page   = max(1, int(request.args.get("page", 1)))
-    limit  = min(50, max(1, int(request.args.get("limit", 15))))
+    page   = safe_int(request.args.get("page"), 1, 1, 10_000)
+    limit  = safe_int(request.args.get("limit"), 15, 1, 50)
     search = request.args.get("search", "").strip()
     plan   = request.args.get("plan", "").strip()
 
@@ -312,8 +324,8 @@ def api_revoke_admin(current_user, user_id: str):
 @admin_bp.route("/api/admin/projects", methods=["GET"])
 @require_permission("view_projects")
 def api_admin_list_projects(current_user):
-    page   = max(1, int(request.args.get("page", 1)))
-    limit  = min(50, max(1, int(request.args.get("limit", 15))))
+    page   = safe_int(request.args.get("page"), 1, 1, 10_000)
+    limit  = safe_int(request.args.get("limit"), 15, 1, 50)
     status = request.args.get("status", "").strip()
 
     _VALID_STATUSES = {"queued", "processing", "completed", "failed"}
@@ -354,8 +366,8 @@ def api_admin_list_projects(current_user):
 @admin_bp.route("/api/admin/audit-log", methods=["GET"])
 @require_permission("view_audit_log")
 def api_admin_audit_log(current_user):
-    page  = max(1, int(request.args.get("page", 1)))
-    limit = min(100, max(1, int(request.args.get("limit", 50))))
+    page   = safe_int(request.args.get("page"), 1, 1, 10_000)
+    limit  = safe_int(request.args.get("limit"), 50, 1, 100)
     logs, total = get_audit_log(page=page, limit=limit)
     return jsonify({
         "logs":  logs,
@@ -386,6 +398,22 @@ def api_admin_health(current_user):
     except Exception:
         services["ollama"] = "offline"
 
+    # Queue state: "degraded" when jobs can be enqueued but no worker is
+    # attached to drain them, which otherwise looks fine until users notice
+    # nothing ever finishes.
+    try:
+        from services.job_queue import queue_health
+        q = queue_health()
+        services["queue"] = q["status"]
+        services["queue_detail"] = q.get("detail", "")
+        services["queue_backend"] = q.get("backend", "thread")
+        if "queued" in q:
+            services["queue_depth"] = q["queued"]
+            services["queue_workers"] = q.get("workers", 0)
+    except Exception as exc:
+        services["queue"] = "error"
+        services["queue_detail"] = str(exc)[:120]
+
     # Return flat structure (frontend expects d.mongodb, d.ollama directly)
     return jsonify(services)
 
@@ -395,8 +423,8 @@ def api_admin_health(current_user):
 @admin_bp.route("/api/admin/login-history", methods=["GET"])
 @require_permission("view_audit_log")
 def api_admin_login_history(current_user):
-    page   = max(1, int(request.args.get("page", 1)))
-    limit  = min(100, max(1, int(request.args.get("limit", 50))))
+    page   = safe_int(request.args.get("page"), 1, 1, 10_000)
+    limit  = safe_int(request.args.get("limit"), 50, 1, 100)
     search = request.args.get("search", "").strip()
     logs, total = get_all_login_history(page=page, limit=limit, search=search)
     return jsonify({
@@ -410,8 +438,8 @@ def api_admin_login_history(current_user):
 @admin_bp.route("/api/admin/users/<user_id>/login-history", methods=["GET"])
 @require_permission("view_users")
 def api_admin_user_login_history(current_user, user_id: str):
-    page  = max(1, int(request.args.get("page", 1)))
-    limit = min(50, max(1, int(request.args.get("limit", 20))))
+    page   = safe_int(request.args.get("page"), 1, 1, 10_000)
+    limit  = safe_int(request.args.get("limit"), 20, 1, 50)
     logs, total = get_user_login_history(user_id, page=page, limit=limit)
     return jsonify({"logs": logs, "total": total, "page": page})
 
@@ -421,8 +449,8 @@ def api_admin_user_login_history(current_user, user_id: str):
 @admin_bp.route("/api/admin/sessions", methods=["GET"])
 @require_permission("view_sessions")
 def api_admin_sessions(current_user):
-    page  = max(1, int(request.args.get("page", 1)))
-    limit = min(100, max(1, int(request.args.get("limit", 50))))
+    page   = safe_int(request.args.get("page"), 1, 1, 10_000)
+    limit  = safe_int(request.args.get("limit"), 50, 1, 100)
     sessions, total = get_all_sessions(page=page, limit=limit)
     return jsonify({
         "sessions": sessions,

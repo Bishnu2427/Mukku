@@ -45,13 +45,70 @@ _VEO_AR = {
 }
 
 
-def _ffmpeg_bin() -> str:
-    """Return path to FFmpeg binary — uses imageio-ffmpeg's bundled copy."""
+_FFMPEG_CACHE: dict[bool, str] = {}
+
+
+def _ffmpeg_candidates() -> list[str]:
+    """System FFmpeg first, then imageio-ffmpeg's bundled static build."""
+    import shutil
+    out = []
+    sys_ff = shutil.which("ffmpeg")
+    if sys_ff:
+        out.append(sys_ff)
     try:
         from imageio_ffmpeg import get_ffmpeg_exe
-        return get_ffmpeg_exe()
+        bundled = get_ffmpeg_exe()
+        if bundled not in out:
+            out.append(bundled)
     except Exception:
-        return "ffmpeg"   # last resort — relies on system PATH
+        pass
+    return out or ["ffmpeg"]
+
+
+def _supports_drawtext(binary: str) -> bool:
+    try:
+        r = subprocess.run([binary, "-hide_banner", "-filters"],
+                           capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=20)
+        return "drawtext" in (r.stdout or "")
+    except Exception:
+        return False
+
+
+def _ffmpeg_bin(require_drawtext: bool = False) -> str:
+    """Return a usable FFmpeg binary, cached per capability requirement.
+
+    imageio-ffmpeg ships a static build that is fine for encoding and mixing
+    but is compiled WITHOUT the drawtext filter on Linux, so burning subtitles
+    with it always fails. Distro FFmpeg has drawtext, so anything that needs it
+    must prefer the system binary — otherwise subtitles are silently dropped
+    on every Linux deployment.
+    """
+    if require_drawtext in _FFMPEG_CACHE:
+        return _FFMPEG_CACHE[require_drawtext]
+
+    candidates = _ffmpeg_candidates()
+    chosen = candidates[0]
+
+    if require_drawtext:
+        for c in candidates:
+            if _supports_drawtext(c):
+                chosen = c
+                break
+        else:
+            logger.warning(
+                "No FFmpeg with the drawtext filter found (%s) — subtitles "
+                "will be skipped. Install system ffmpeg.", ", ".join(candidates),
+            )
+    else:
+        # General encoding work: prefer the bundled build, which is version
+        # pinned and always present, matching the previous behaviour.
+        for c in reversed(candidates):
+            chosen = c
+            break
+
+    _FFMPEG_CACHE[require_drawtext] = chosen
+    return chosen
 
 
 # ── Public entry points ───────────────────────────────────────────────────────
@@ -155,14 +212,26 @@ def assemble_video(
     else:
         _ffmpeg_concat(concat_list, output)
 
-    # Apply color grading as a final polish pass
-    graded = str(tmp_dir / "graded.mp4")
+    # Apply color grading as a final polish pass.
+    #
+    # The scratch file MUST sit beside the output, not in the system temp dir.
+    # os.replace() is only atomic within one filesystem and raises OSError 18
+    # (EXDEV / WinError 17) across a device boundary — which is the normal case
+    # here: temp is C:\ while media is E:\ on Windows, and /tmp is a different
+    # device from the /app/media volume in Docker. The exception was swallowed
+    # by the except below, so grading was silently skipped on every render.
+    graded = str(VIDEOS_DIR / f"{project_id}_graded.mp4")
     try:
         _ffmpeg_color_grade(output, graded)
-        os.replace(graded, output)
+        os.replace(graded, output)          # same directory -> atomic
         logger.info("Color grading applied → %s", output)
     except Exception as exc:
         logger.warning("Color grading skipped: %s", exc)
+        # Do not leave a half-written scratch file behind.
+        try:
+            os.remove(graded)
+        except OSError:
+            pass
 
     for sf in scene_files:
         try:
@@ -310,7 +379,7 @@ def _render_scene_to_disk(
 def _ffmpeg_concat(concat_list: str, output: str) -> None:
     ff = _ffmpeg_bin()
     cmd = [ff, "-y", "-f", "concat", "-safe", "0", "-i", concat_list, "-c", "copy", output]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     if r.returncode != 0:
         raise RuntimeError(f"FFmpeg concat failed:\n{r.stderr[-2000:]}")
     logger.info("FFmpeg concat OK → %s", output)
@@ -334,7 +403,7 @@ def _ffmpeg_mix_music(video_path: str, music_path: str, output: str) -> None:
         "-c:v", "copy", "-c:a", "aac",
         "-shortest", output,
     ]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     if r.returncode != 0:
         raise RuntimeError(f"FFmpeg music mix failed:\n{r.stderr[-2000:]}")
     logger.info("FFmpeg music mix OK → %s", output)
@@ -345,7 +414,7 @@ def _probe_duration(path: str) -> float:
     ff = _ffmpeg_bin()
     # ffmpeg prints Duration to stderr when given just -i
     r = subprocess.run([ff, "-i", path, "-hide_banner"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding='utf-8', errors='replace')
     m = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", r.stderr)
     if m:
         h, mi, s = int(m.group(1)), int(m.group(2)), float(m.group(3))
@@ -535,24 +604,115 @@ def _ken_burns_clip(image_path: str, duration: float,
 
 # ── Subtitle & color-grade helpers ────────────────────────────────────────────
 
-def _get_font_path() -> str:
-    """Return path to a TTF font usable by FFmpeg drawtext on Windows."""
-    candidates = [
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/NirmalaUI.ttf",  # Devanagari/Hindi (Windows 8+)
-        "C:/Windows/Fonts/nirmala.ttf",
-        "C:/Windows/Fonts/calibri.ttf",
-        "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/verdana.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",      # Linux Noto
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",          # Linux fallback
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",     # macOS
-        "/System/Library/Fonts/Helvetica.ttc",                       # macOS fallback
-    ]
-    for p in candidates:
+# Unicode block → font files that actually contain those glyphs.
+# Latin-only faces (arial.ttf, NotoSans-Regular.ttf) have NO Indic coverage, so
+# picking one for Hindi/Tamil/etc. renders every character as a .notdef box.
+# Ordered best-first; the first file that exists on disk wins.
+_SCRIPT_FONTS: list[tuple[range, tuple[str, ...]]] = [
+    # Devanagari — Hindi, Marathi
+    (range(0x0900, 0x0980), (
+        "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+        "/usr/share/fonts/truetype/fonts-deva-extra/nakula.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf", "C:/Windows/Fonts/mangal.ttf",
+    )),
+    # Bengali — Bengali, Assamese
+    (range(0x0980, 0x0A00), (
+        "/usr/share/fonts/truetype/lohit-bengali/Lohit-Bengali.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansBengali-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf", "C:/Windows/Fonts/vrinda.ttf",
+    )),
+    # Gurmukhi — Punjabi
+    (range(0x0A00, 0x0A80), (
+        "/usr/share/fonts/truetype/lohit-punjabi/Lohit-Gurmukhi.ttf",
+        "/usr/share/fonts/truetype/lohit-punjabi/Lohit-Punjabi.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansGurmukhi-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf",
+    )),
+    # Gujarati
+    (range(0x0A80, 0x0B00), (
+        "/usr/share/fonts/truetype/lohit-gujarati/Lohit-Gujarati.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansGujarati-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf",
+    )),
+    # Odia
+    (range(0x0B00, 0x0B80), (
+        "/usr/share/fonts/truetype/lohit-odia/Lohit-Odia.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansOriya-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf",
+    )),
+    # Tamil
+    (range(0x0B80, 0x0C00), (
+        "/usr/share/fonts/truetype/lohit-tamil/Lohit-Tamil.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf", "C:/Windows/Fonts/latha.ttf",
+    )),
+    # Telugu
+    (range(0x0C00, 0x0C80), (
+        "/usr/share/fonts/truetype/lohit-telugu/Lohit-Telugu.ttf",
+        "/usr/share/fonts/truetype/fonts-telu-extra/Pothana2000.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansTelugu-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf", "C:/Windows/Fonts/gautami.ttf",
+    )),
+    # Kannada
+    (range(0x0C80, 0x0D00), (
+        "/usr/share/fonts/truetype/lohit-kannada/Lohit-Kannada.ttf",
+        "/usr/share/fonts/truetype/fonts-kalapi/Navilu.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansKannada-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf", "C:/Windows/Fonts/tunga.ttf",
+    )),
+    # Malayalam
+    (range(0x0D00, 0x0D80), (
+        "/usr/share/fonts/truetype/malayalam/Lohit-Malayalam.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansMalayalam-Regular.ttf",
+        "C:/Windows/Fonts/Nirmala.ttc", "C:/Windows/Fonts/NirmalaUI.ttf", "C:/Windows/Fonts/kartika.ttf",
+    )),
+]
+
+# Latin / fallback, used when the text is ASCII or no script font is present.
+_LATIN_FONTS = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+    "C:/Windows/Fonts/arial.ttf",
+    "C:/Windows/Fonts/segoeui.ttf",
+    "C:/Windows/Fonts/calibri.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    "/System/Library/Fonts/Helvetica.ttc",
+)
+
+
+def _first_existing(paths) -> str:
+    for p in paths:
         if os.path.exists(p):
             return p.replace("\\", "/")
     return ""
+
+
+def _get_font_path(text: str = "") -> str:
+    """Return a TTF for FFmpeg drawtext that can actually render `text`.
+
+    Chooses by inspecting the text's own codepoints rather than by trusting a
+    language setting, so it stays correct even when the narration language and
+    the requested language disagree. Falls back to a Latin face for ASCII.
+    """
+    for ch in text:
+        cp = ord(ch)
+        if cp < 0x0900:          # ASCII / Latin — no script lookup needed
+            continue
+        for block, fonts in _SCRIPT_FONTS:
+            if cp in block:
+                found = _first_existing(fonts)
+                if found:
+                    return found
+                # Script identified but no covering font installed. A Latin
+                # face would only produce boxes, so report none and let the
+                # caller skip the burn rather than ship garbled output.
+                logger.warning(
+                    "No font installed for U+%04X — subtitles skipped. "
+                    "Install fonts-indic (Debian) or Nirmala UI (Windows).", cp,
+                )
+                return ""
+    return _first_existing(_LATIN_FONTS)
 
 
 def _wrap_subtitle(text: str, max_chars: int = 42) -> str:
@@ -585,7 +745,8 @@ def _burn_subtitle(input_path: str, output_path: str,
     """Burn a caption line onto the clip using FFmpeg drawtext.
     Falls back silently (copies file) if no font is found.
     """
-    font_path = _get_font_path()
+    # Pass the narration so the font is chosen to cover its script.
+    font_path = _get_font_path(text)
     if not font_path:
         import shutil
         shutil.copy2(input_path, output_path)
@@ -614,9 +775,14 @@ def _burn_subtitle(input_path: str, output_path: str,
     fontsize   = max(18, vid_h // 22)
     pad_bottom = max(20, int(vid_h * 0.06))
 
+    # A colon separates options inside an FFmpeg filter, so the Windows drive
+    # letter in "C:/Windows/Fonts/..." breaks filter parsing entirely. Escaping
+    # it is what makes burned subtitles work on Windows at all.
+    font_esc = font_path.replace("\\", "/").replace(":", r"\:")
+
     drawtext = (
         f"drawtext="
-        f"fontfile='{font_path}':"
+        f"fontfile='{font_esc}':"
         f"text='{escaped}':"
         f"fontcolor=white:"
         f"fontsize={fontsize}:"
@@ -628,14 +794,15 @@ def _burn_subtitle(input_path: str, output_path: str,
         f"line_spacing=6"
     )
 
-    ff  = _ffmpeg_bin()
+    # drawtext is unavailable in imageio-ffmpeg's Linux static build.
+    ff  = _ffmpeg_bin(require_drawtext=True)
     cmd = [
         ff, "-y", "-i", input_path,
         "-vf", drawtext,
         "-c:v", "libx264", "-crf", "23", "-preset", "fast",
         "-c:a", "copy", output_path,
     ]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     if r.returncode != 0:
         raise RuntimeError(f"drawtext failed: {r.stderr[-600:]}")
 
@@ -651,7 +818,7 @@ def _ffmpeg_color_grade(input_path: str, output_path: str) -> None:
         "-c:v", "libx264", "-crf", "21", "-preset", "fast",
         "-c:a", "copy", output_path,
     ]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     if r.returncode != 0:
         raise RuntimeError(f"Color grade failed: {r.stderr[-600:]}")
 

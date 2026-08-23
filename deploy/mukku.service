@@ -1,0 +1,26 @@
+[Unit]
+Description=Mukku AI Studio
+After=network.target
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=mukku
+Group=mukku
+WorkingDirectory=/opt/mukku
+Environment="PATH=/opt/mukku/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/mukku/.env
+ExecStart=/opt/mukku/venv/bin/gunicorn \
+    "backend.app:app" \
+    --config /opt/mukku/deploy/gunicorn.conf.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mukku
+
+# Prevent runaway memory from Stable Diffusion OOM
+MemoryMax=20G
+
+[Install]
+WantedBy=multi-user.target

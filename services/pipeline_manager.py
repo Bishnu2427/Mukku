@@ -16,6 +16,10 @@ from database.mongo_connection  import update_project
 
 logger = logging.getLogger(__name__)
 
+# project_id -> human-readable stage, so a failure can say WHERE it broke
+# without leaking a traceback to the user.
+_current_stage: dict[str, str] = {}
+
 # Max scenes per duration bracket — keeps pipeline fast and clip count sane
 _SCENE_CAP = [
     (30,  4),
@@ -210,15 +214,28 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None, use
         })
         logger.info("Pipeline completed — project: %s  video: %s", project_id, video_path)
 
-    except Exception:
+    except Exception as exc:
+        # OWASP A09 / A05: the full traceback used to be written to
+        # project.error, which /status returns verbatim to the browser. That
+        # leaks absolute filesystem paths, package versions and internal module
+        # names to any user who can trigger a failure. Keep the detail in the
+        # server log, give the user something actionable, and stash the
+        # traceback in a field the API never serialises.
         err = traceback.format_exc()
         logger.error("Pipeline FAILED — project: %s\n%s", project_id, err)
         update_project(project_id, {
             "status":       "failed",
             "current_step": "failed",
             "progress":     0,
-            "error":        err,
+            "error": (
+                f"Generation failed during '{_current_stage.get(project_id, 'processing')}'. "
+                f"({type(exc).__name__}) Please try again — if it keeps failing, "
+                f"contact support with project id {project_id}."
+            ),
+            "error_internal": err,
         })
+    finally:
+        _current_stage.pop(project_id, None)
 
 
 def _prepare_user_image(src: str, project_id: str, scene_num: int, aspect_ratio: str) -> str | None:
@@ -268,6 +285,7 @@ def _prepare_user_video(src: str, project_id: str, scene_num: int, aspect_ratio:
 
 
 def _set_stage(project_id: str, step: str, progress: int, extra: dict | None = None) -> None:
+    _current_stage[project_id] = step.replace("_", " ")
     updates = {"status": "processing", "current_step": step, "progress": progress}
     if extra:
         updates.update(extra)

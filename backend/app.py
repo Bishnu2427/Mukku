@@ -5,7 +5,6 @@ import sys
 import uuid
 import json
 import logging
-import threading
 import subprocess
 from pathlib import Path
 
@@ -14,17 +13,19 @@ from werkzeug.utils import secure_filename
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 
-from database.mongo_connection import create_project, get_project, list_projects
+from database.mongo_connection import (
+    create_project, get_project, list_projects, list_projects_for_user,
+    reconcile_stale_projects,
+)
 from database.user_model import _ensure_indexes, seed_super_admin
-from services.pipeline_manager import run_pipeline
+from backend.extensions import limiter, _storage_uri, safe_int, LIMIT_ENQUIRY
+from services import job_queue
 from backend.auth import auth_bp
 from backend.admin_api import admin_bp
 
@@ -34,7 +35,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FRONTEND_DIR = ROOT / "frontend"
+# React SPA build output (Frontend/dist). Vite emits index.html + assets/ here.
+FRONTEND_DIR = ROOT / "Frontend" / "dist"
+SPA_INDEX    = FRONTEND_DIR / "index.html"
 VIDEOS_DIR   = ROOT / "media" / "videos"
 THUMBS_DIR   = ROOT / "media" / "thumbs"
 
@@ -54,54 +57,157 @@ CORS(app,
      supports_credentials=True,
      origins=[_app_origin, "http://localhost:7000", "http://127.0.0.1:7000"])
 
-app.secret_key = os.getenv("JWT_SECRET", "change-me-in-production")
+# ── Secrets (OWASP A02: Cryptographic Failures) ────────────────────────────────
+_IS_HTTPS   = os.getenv("APP_URL", "").startswith("https://")
+_DEBUG      = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+_JWT_SECRET = os.getenv("JWT_SECRET", "")
+_WEAK_MARKERS = ("change-me", "changeme", "mukku-change-me", "secret", "password")
 
-# ── Rate limiter (in-memory; swap storage_uri for Redis in production) ─────────
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    default_limits=[],   # no global limit — only on specific endpoints
-    storage_uri="memory://",
+
+def _validate_secrets() -> None:
+    """Refuse to boot in production with a guessable signing key.
+
+    Previously a missing JWT_SECRET only logged a warning and fell back to a
+    hardcoded literal that is committed to the repo. Anyone with the source
+    could forge a session cookie for any user, including the super admin.
+    A warning is not enough for that — production must fail closed.
+    """
+    problems = []
+    if not _JWT_SECRET:
+        problems.append("JWT_SECRET is not set")
+    else:
+        low = _JWT_SECRET.lower()
+        if len(_JWT_SECRET) < 32:
+            problems.append(f"JWT_SECRET is only {len(_JWT_SECRET)} chars (need 32+)")
+        if any(m in low for m in _WEAK_MARKERS):
+            problems.append("JWT_SECRET contains a placeholder value")
+
+    if not problems:
+        return
+
+    detail = "; ".join(problems)
+    if _DEBUG:
+        logger.warning("INSECURE SECRET (allowed because FLASK_DEBUG=true): %s", detail)
+    else:
+        raise RuntimeError(
+            f"Refusing to start: {detail}. Generate one with:\n"
+            f'  python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+
+
+_validate_secrets()
+
+app.secret_key = _JWT_SECRET or "dev-only-insecure-key"
+
+# Flask's own signed session — used only to carry the OAuth CSRF state.
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",   # Strict would break the OAuth return trip
+    SESSION_COOKIE_SECURE=_IS_HTTPS,
+    SESSION_COOKIE_NAME="mukku_session",
+    # Hard ceiling on request size, enforced before the body is buffered. The
+    # per-file 50 MB check in /generate runs after upload; this stops a
+    # multi-gigabyte body from exhausting memory first.
+    MAX_CONTENT_LENGTH=int(os.getenv("MAX_CONTENT_MB", "60")) * 1024 * 1024,
+    JSON_SORT_KEYS=False,
 )
 
-# ── Security headers ───────────────────────────────────────────────────────────
+# ── Rate limiter ───────────────────────────────────────────────────────────────
+# Constructed in backend/extensions.py so blueprints can decorate their views at
+# definition time; init_app binds it to this app. The limits themselves live
+# next to the views they protect.
+limiter.init_app(app)
+
+_ratelimit_uri = _storage_uri()
+if _ratelimit_uri.startswith("memory://"):
+    logger.warning(
+        "Rate limiting uses in-memory storage — limits are per worker, so the "
+        "effective cap is multiplied by the worker count. Set RATELIMIT_STORAGE_URI "
+        "to a Redis URL in production."
+    )
+else:
+    logger.info("Rate limiting backed by shared storage: %s",
+                _ratelimit_uri.split("@")[-1])
+
+# ── Security headers (OWASP A05: Security Misconfiguration) ────────────────────
+
+# script-src has NO 'unsafe-inline'. The single inline bootstrap script was
+# moved to /static/theme-init.js precisely so this could be dropped — with it,
+# an injected <script> or event-handler attribute simply will not execute,
+# which is the strongest XSS control available here.
+#
+# style-src still needs 'unsafe-inline': Framer Motion animates via inline
+# style attributes. That is a far smaller exposure than inline script.
+#
+# cdnjs is gone — three.js is bundled now, so no third-party script origin
+# is trusted at all.
+_CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    # Google profile pictures for OAuth users; data:/blob: for upload previews.
+    "img-src 'self' data: blob: https://lh3.googleusercontent.com",
+    "media-src 'self' blob:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+] + (["upgrade-insecure-requests"] if _IS_HTTPS else []))
+
+
 @app.after_request
 def set_security_headers(response):
-    # Prevent MIME-type sniffing
+    response.headers["Content-Security-Policy"] = _CSP
     response.headers["X-Content-Type-Options"] = "nosniff"
-    # Deny framing (clickjacking)
-    response.headers["X-Frame-Options"] = "DENY"
-    # Legacy XSS filter (for older browsers)
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    # Don't send referrer to external sites
+    response.headers["X-Frame-Options"] = "DENY"            # legacy, CSP covers it
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Only send HSTS if actually on HTTPS
-    if os.getenv("APP_URL", "").startswith("https://"):
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # Content Security Policy — allows inline styles/scripts needed for the SPA
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
-        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-        "img-src 'self' data: blob:; "
-        "media-src 'self' blob:; "
-        "connect-src 'self'; "
-        "frame-ancestors 'none';"
+    # Deny hardware/API access the app never uses, so injected code cannot
+    # reach for a camera or geolocation prompt.
+    response.headers["Permissions-Policy"] = (
+        "accelerometer=(), autoplay=(self), camera=(), display-capture=(), "
+        "encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), "
+        "magnetometer=(), microphone=(), midi=(), payment=(), usb=(), "
+        "interest-cohort=()"
     )
+    # Cross-origin isolation: blocks Spectre-style leaks and stops other
+    # origins embedding or reading our responses.
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+
+    if _IS_HTTPS:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+
+    # Suppress the stack banner. NOTE: gunicorn writes its own Server header at
+    # the WSGI layer and overrides this, so under gunicorn the response still
+    # says "gunicorn" (without a version, so no CVE-matchable build is leaked).
+    # Strip it properly at the reverse proxy:
+    #   nginx:  more_clear_headers Server;   (headers-more module)
+    #           or  server_tokens off;  plus  proxy_hide_header Server;
+    response.headers["Server"] = "mukku"
+
+    # Authenticated JSON must never sit in a shared or browser cache.
+    if request.path.startswith("/api/") or request.path.startswith("/status/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+        response.headers["Pragma"] = "no-cache"
+
     return response
 
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 
-# ── Per-endpoint rate limits ───────────────────────────────────────────────────
-# Auth endpoints: strict limits to prevent brute force / spam
-limiter.limit("10 per minute")(app.view_functions["auth.api_login"])
-limiter.limit("10 per minute")(app.view_functions["auth.api_verify_otp"])
-limiter.limit("5 per minute")(app.view_functions["auth.api_register"])
-limiter.limit("5 per minute")(app.view_functions["auth.api_forgot_password"])
-limiter.limit("5 per minute")(app.view_functions["auth.api_reset_password"])
+# Auth endpoint limits are declared with @limiter.limit at each view in
+# backend/auth.py. They used to be applied here against app.view_functions,
+# which registered them under the function qualname instead of the Flask
+# endpoint name — so they silently never fired.
 
 # Ensure MongoDB indexes and seed super admin on startup
 try:
@@ -109,6 +215,18 @@ try:
     seed_super_admin()
 except Exception as _idx_err:
     logger.warning("Could not initialise DB: %s", _idx_err)
+
+# Any project still marked processing after a restart has no owner — its worker
+# died with the previous process. Fail those explicitly so users see a real
+# error and can retry, instead of a progress bar that never moves again.
+try:
+    _stale = reconcile_stale_projects(int(os.getenv("STALE_JOB_MINUTES", "45")))
+    if _stale:
+        logger.warning("Reconciled %d interrupted project(s) to 'failed' on startup.", _stale)
+except Exception as _rec_err:
+    logger.warning("Stale-project reconciliation skipped: %s", _rec_err)
+
+logger.info("Job queue backend: %s", job_queue.backend_name())
 
 VALID_TONES        = {"educational", "professional", "motivational", "casual", "entertaining"}
 VALID_STYLES       = {"photorealistic", "cinematic", "documentary"}
@@ -128,14 +246,65 @@ def _ffmpeg_bin() -> str:
         return "ffmpeg"
 
 
+def _spa():
+    """Serve the React shell. Client-side routing takes over from there."""
+    return send_file(SPA_INDEX)
+
+
+@app.route("/assets/<path:filename>")
+def spa_assets(filename: str):
+    """Hashed JS/CSS bundles emitted by Vite. Immutable — cache hard."""
+    return send_from_directory(FRONTEND_DIR / "assets", filename, max_age=31536000)
+
+
 @app.route("/")
 def landing():
-    return send_file(FRONTEND_DIR / "landing.html")
+    return _spa()
 
 
 @app.route("/studio")
 def studio():
-    return send_file(FRONTEND_DIR / "index.html")
+    return _spa()
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /studio\n"
+        "Disallow: /dashboard\n"
+        "Disallow: /login\n"
+        "Disallow: /register\n"
+        "Disallow: /admin\n"
+        "Disallow: /api/\n"
+        "Disallow: /video/\n"
+        "Disallow: /status/\n"
+        "Disallow: /media/\n"
+        "\n"
+        "Sitemap: https://mukku.ai/sitemap.xml\n"
+    )
+    return app.response_class(content, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    from datetime import date
+    today = date.today().isoformat()
+    content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <url>
+    <loc>https://mukku.ai/</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+
+</urlset>"""
+    return app.response_class(content, mimetype="application/xml")
 
 
 UPLOADS_DIR = ROOT / "media" / "uploads"
@@ -160,8 +329,8 @@ def generate():
         return jsonify({"error": "Prompt is too short — please be more descriptive."}), 400
     if len(prompt) > 3000:
         return jsonify({"error": "Prompt is too long (max 3000 characters)."}), 400
-    duration = int(raw_settings.get("duration", 60))
-    duration = max(15, min(duration, MAX_DURATION_SECS))
+    # Bounded coercion: a non-numeric duration used to raise ValueError -> 500.
+    duration = safe_int(raw_settings.get("duration", 60), 60, 15, MAX_DURATION_SECS)
 
     settings = {
         "duration":      duration,
@@ -170,15 +339,36 @@ def generate():
         "aspect_ratio":  raw_settings.get("aspect_ratio", "16:9")    if raw_settings.get("aspect_ratio") in VALID_RATIOS else "16:9",
         "voice_gender":  raw_settings.get("voice_gender", "auto")    if raw_settings.get("voice_gender") in VALID_VOICES else "auto",
         "include_music": bool(raw_settings.get("include_music", True)),
-        "scene_count":   int(raw_settings.get("scene_count", 0)),
+        # Unbounded before: scene_count=100000 would drive the fallback
+        # scene builder into a huge loop. 0 means "let the pipeline decide".
+        "scene_count":   safe_int(raw_settings.get("scene_count", 0), 0, 0, 20),
         "platform":      raw_settings.get("platform", "")             if raw_settings.get("platform", "") in VALID_PLATFORMS else "",
         "language":      raw_settings.get("language", "en")            if raw_settings.get("language", "en") in VALID_LANGUAGES else "en",
     }
 
-    # Attach user_id if request is authenticated
+    # Require authentication
     from backend.auth import get_current_user as _get_user
     current_user = _get_user()
-    user_id      = current_user["user_id"] if current_user else None
+    if not current_user:
+        return jsonify({"error": "Please log in to generate videos.", "redirect": "/login"}), 401
+
+    user_id = current_user["user_id"]
+
+    # ── Quota enforcement ────────────────────────────────────────────────────
+    _PLAN_LIMITS = {"free": 3, "starter": 5, "pro": 25, "enterprise": -1, "super_admin": -1}
+    plan         = current_user.get("plan", "free")
+    role         = current_user.get("role", "user")
+    limit        = _PLAN_LIMITS.get(role if role in ("super_admin", "enterprise") else plan, 3)
+    used         = current_user.get("videos_this_month", 0)
+
+    if limit != -1 and used >= limit:
+        return jsonify({
+            "error":   "quota_exceeded",
+            "message": f"You've used {used}/{limit} videos this month.",
+            "plan":    plan,
+            "used":    used,
+            "limit":   limit,
+        }), 402
 
     project_id = uuid.uuid4().hex[:10]
     create_project(project_id, prompt, settings, user_id=user_id)
@@ -208,23 +398,36 @@ def generate():
             uploaded_paths.append(str(dest))
             logger.info("Saved user upload: %s (%d bytes)", dest, size)
 
-    thread = threading.Thread(
-        target=run_pipeline,
-        args=(project_id, prompt, settings, uploaded_paths),
-        daemon=True,
-        name=f"pipeline-{project_id}",
-    )
-    thread.start()
+    # Dispatch through the queue layer: Redis/RQ in production so the render
+    # survives a web-tier restart, an in-process thread in development.
+    job_ref = job_queue.enqueue_pipeline(project_id, prompt, settings, uploaded_paths)
 
-    logger.info("Project %s started — platform=%s  duration=%ds  style=%s  tone=%s  ratio=%s",
-                project_id, settings["platform"] or "custom", settings["duration"],
+    logger.info("Project %s started (job=%s) — platform=%s  duration=%ds  style=%s  tone=%s  ratio=%s",
+                project_id, job_ref, settings["platform"] or "custom", settings["duration"],
                 settings["image_style"], settings["tone"], settings["aspect_ratio"])
     return jsonify({"project_id": project_id, "status": "processing"}), 202
 
 
+def _owned_project(project_id: str):
+    """Return (project, user) if caller owns the project, else (None, None)."""
+    from backend.auth import get_current_user as _get_user
+    project = get_project(project_id)
+    if not project:
+        return None, None
+    current_user = _get_user()
+    if not current_user:
+        return None, None
+    # Admins can access any project
+    if current_user.get("is_admin") or current_user.get("role") in ("admin", "super_admin"):
+        return project, current_user
+    if project.get("user_id") != current_user["user_id"]:
+        return None, None
+    return project, current_user
+
+
 @app.route("/status/<project_id>", methods=["GET"])
 def status(project_id: str):
-    project = get_project(project_id)
+    project, _ = _owned_project(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
 
@@ -245,18 +448,28 @@ def status(project_id: str):
 
 @app.route("/video/<project_id>", methods=["GET"])
 def get_video(project_id: str):
-    project = get_project(project_id)
+    project, current_user = _owned_project(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
 
     if project.get("status") != "completed":
         return jsonify({"error": "Video is not ready yet.", "status": project.get("status")}), 202
 
+    # ── Subscription check — free users can only watch, not download past 3 ──
+    plan        = current_user.get("plan", "free") if current_user else "free"
+    can_download = plan not in ("free",) or current_user.get("role") in ("admin", "super_admin")
+
     video_path = project.get("video_path", "")
     if not video_path or not os.path.exists(video_path):
         return jsonify({"error": "Video file not found on disk."}), 404
 
     download = request.args.get("download", "false").lower() == "true"
+    if download and not can_download:
+        return jsonify({
+            "error":   "subscription_required",
+            "message": "Upgrade your plan to download videos.",
+        }), 402
+
     return send_file(
         video_path,
         mimetype="video/mp4",
@@ -268,8 +481,15 @@ def get_video(project_id: str):
 
 @app.route("/thumbnail/<project_id>", methods=["GET"])
 def get_thumbnail(project_id: str):
-    """Extract and return a JPEG thumbnail from the first frame of the video."""
-    project = get_project(project_id)
+    """Extract and return a JPEG thumbnail from the first frame of the video.
+
+    OWASP A01 (Broken Access Control): this used to call get_project() directly
+    with no ownership check, so anyone holding a project id — they are only
+    10 hex chars, and they appear in dashboard markup — could pull a frame from
+    another user's video. It now goes through the same ownership gate as
+    /status and /video.
+    """
+    project, _ = _owned_project(project_id)
     if not project or project.get("status") != "completed":
         return jsonify({"error": "not ready"}), 404
 
@@ -296,14 +516,24 @@ def get_thumbnail(project_id: str):
 
 @app.route("/projects", methods=["GET"])
 def projects():
-    limit = min(int(request.args.get("limit", 20)), 50)
-    items = list_projects(limit)
+    from backend.auth import get_current_user as _get_user
+    current_user = _get_user()
+    if not current_user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    limit = safe_int(request.args.get("limit"), 20, 1, 50)
+
+    # Admins see all projects; regular users see only their own
+    if current_user.get("is_admin") or current_user.get("role") in ("admin", "super_admin"):
+        items = list_projects(limit)
+    else:
+        items = list_projects_for_user(current_user["user_id"], limit)
+
     result = []
     for item in items:
         for k in ("created_at", "updated_at"):
             if item.get(k):
                 item[k] = item[k].isoformat()
-        # Lightweight fields only — omit large arrays
         result.append({
             "project_id":    item.get("project_id"),
             "prompt":        item.get("prompt", ""),
@@ -322,6 +552,7 @@ def health():
 
 
 @app.route("/enquiry", methods=["POST"])
+@limiter.limit(LIMIT_ENQUIRY)
 def enquiry():
     """Receive a contact-form submission and forward it via SMTP."""
     import smtplib
@@ -371,6 +602,46 @@ Message :
     except Exception as exc:
         logger.error("Failed to send enquiry email: %s", exc)
         return jsonify({"error": "Failed to send email"}), 500
+
+
+# ── SPA fallback ───────────────────────────────────────────────────────────────
+# Registered last. A direct hit or hard refresh on a client-side route such as
+# /dashboard must return the React shell rather than a 404. Backend prefixes are
+# excluded explicitly so this can never swallow a real API path — if an /api URL
+# reaches here it genuinely does not exist, and must stay a JSON 404.
+_BACKEND_PREFIXES = (
+    "api/", "generate", "status/", "video/", "thumbnail/",
+    "projects", "enquiry", "health", "static/", "assets/",
+    "robots.txt", "sitemap.xml",
+)
+
+
+@app.route("/<path:path>")
+def spa_fallback(path: str):
+    """Unknown path: serve the shell so the client can render its 404 page,
+    but return 404 so the status is honest and matches what /admin returns for
+    non-admins. Every real client route is registered above, so a request
+    reaching here genuinely does not exist.
+
+    If you add a new client-side route, register it here too (one line calling
+    `_spa()`), otherwise deep links to it will carry a 404 status.
+    """
+    if path.startswith(_BACKEND_PREFIXES):
+        return jsonify({"error": "Not found"}), 404
+    return send_file(SPA_INDEX), 404
+
+
+@app.errorhandler(404)
+def handle_404(_err):
+    """Render the SPA for unknown GETs, but keep the 404 status.
+
+    Preserving the status matters for `/admin`, which deliberately aborts 404
+    for non-admins. The body is the same shell every unknown path returns, so
+    nothing is leaked, and the client router still renders something useful.
+    """
+    if request.path.startswith("/api/") or request.method != "GET":
+        return jsonify({"error": "Not found"}), 404
+    return send_file(SPA_INDEX), 404
 
 
 if __name__ == "__main__":

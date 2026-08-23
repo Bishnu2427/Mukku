@@ -60,9 +60,10 @@ _LOCKOUT_MINUTES     = 15
 
 def _ensure_indexes():
     """Call once at startup to create all necessary indexes."""
-    _users().create_index("email",   unique=True)
-    _users().create_index("user_id", unique=True)
+    _users().create_index("email",     unique=True)
+    _users().create_index("user_id",   unique=True)
     _users().create_index("role")
+    _users().create_index("google_id", sparse=True)  # Google OAuth users
 
     _sessions().create_index("session_id", unique=True)
     _sessions().create_index("user_id")
@@ -206,6 +207,46 @@ def create_user(name: str, email: str, password_hash: str) -> str | None:
         "avatar":                 None,
     })
     return user_id
+
+
+def create_or_get_google_user(google_id: str, email: str, name: str,
+                               picture: str | None = None) -> dict:
+    """Find or create a user via Google OAuth. Returns the user document."""
+    email = email.lower().strip()
+    # Try to find by google_id first, then by email
+    user = _users().find_one({"google_id": google_id}) or _users().find_one({"email": email})
+    if user:
+        # Link google_id if not already linked
+        updates = {"last_login": datetime.now(timezone.utc)}
+        if not user.get("google_id"):
+            updates["google_id"] = google_id
+        if picture and not user.get("avatar"):
+            updates["avatar"] = picture
+        _users().update_one({"user_id": user["user_id"]}, {"$set": updates})
+        return _users().find_one({"user_id": user["user_id"]}, {"_id": 0})
+
+    # Create new Google user (no password_hash)
+    user_id = uuid.uuid4().hex[:12]
+    now = datetime.now(timezone.utc)
+    _users().insert_one({
+        "user_id":                user_id,
+        "name":                   name.strip() or email.split("@")[0],
+        "email":                  email,
+        "password_hash":          None,   # Google users have no password
+        "google_id":              google_id,
+        "avatar":                 picture,
+        "role":                   "user",
+        "permissions":            [],
+        "plan":                   "free",
+        "is_admin":               False,
+        "is_active":              True,
+        "created_at":             now,
+        "last_login":             now,
+        "total_videos_generated": 0,
+        "videos_this_month":      0,
+        "month_reset_at":         now,
+    })
+    return _users().find_one({"user_id": user_id}, {"_id": 0})
 
 
 def get_user_by_email(email: str) -> dict | None:

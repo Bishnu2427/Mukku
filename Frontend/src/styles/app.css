@@ -1,0 +1,404 @@
+/* ============================================================================
+   Mukku Design System — "Dusk on the Lake"
+   ----------------------------------------------------------------------------
+   Palette sampled from the reference wallpapers:
+     · Misurina lake at dusk → lavender sky, periwinkle haze, blue-grey peaks,
+       deep indigo shadow, and small WARM AMBER town lights on the water.
+     · Windows 11 bloom      → clean ribbon blues over a cool near-white.
+
+   The whole system is cool-cast. Amber is the single warm note and is spent
+   deliberately: progress, generation, success. That contrast is the identity.
+   ========================================================================== */
+
+@import 'tailwindcss';
+
+/* Dark mode is driven by data-theme on <html>, matching the legacy
+   `mukku_theme` localStorage contract so existing preferences survive. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  /* ── Primary · periwinkle indigo (the lake at dusk) ───────────────────── */
+  --color-primary-50:  #f0f3fc;
+  --color-primary-100: #dfe5f8;
+  --color-primary-200: #c4cff2;
+  --color-primary-300: #9fb0e8;
+  --color-primary-400: #7d8fde;
+  --color-primary-500: #6478d4;
+  --color-primary-600: #4f60be;
+  --color-primary-700: #414d9c;
+  --color-primary-800: #37417d;
+  --color-primary-900: #2f3865;
+  --color-primary-950: #1d223f;
+
+  /* ── Secondary · lavender haze (the sky) ──────────────────────────────── */
+  --color-lavender-50:  #f6f4fa;
+  --color-lavender-100: #ede9f5;
+  --color-lavender-200: #dcd5ec;
+  --color-lavender-300: #c4b8dd;
+  --color-lavender-400: #a99bc8;
+  --color-lavender-500: #9080b3;
+  --color-lavender-600: #77679a;
+  --color-lavender-700: #62557e;
+  --color-lavender-800: #524868;
+  --color-lavender-900: #453d56;
+
+  /* ── Accent · amber (town lights reflected on water) ──────────────────── */
+  --color-amber-200: #f7e0bd;
+  --color-amber-300: #f0c88e;
+  --color-amber-400: #e8b673;
+  --color-amber-500: #e0a85c;
+  --color-amber-600: #c88c42;
+  --color-amber-700: #a66f33;
+
+  /* ── Neutrals · cool slate, never pure grey, never pure black ─────────── */
+  --color-slate-0:    #ffffff;
+  --color-slate-25:   #fbfcfe;
+  --color-slate-50:   #f6f8fc;
+  --color-slate-100:  #eef1f7;
+  --color-slate-200:  #e1e6ef;
+  --color-slate-300:  #cbd2e0;
+  --color-slate-400:  #9aa3b8;
+  --color-slate-500:  #6e7488;
+  --color-slate-600:  #545a6e;
+  --color-slate-700:  #3f4457;
+  --color-slate-800:  #2a2f3f;
+  --color-slate-850:  #1f2431;
+  --color-slate-900:  #171b26;
+  --color-slate-950:  #10131f;
+  --color-slate-1000: #0a0c14;
+
+  /* ── Semantic ─────────────────────────────────────────────────────────── */
+  --color-success-400: #5cc7a8;
+  --color-success-500: #3eaf8f;
+  --color-success-600: #2f8f74;
+  --color-danger-400:  #e87d90;
+  --color-danger-500:  #e05b72;
+  --color-danger-600:  #c4415a;
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --font-display: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans:    'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --text-2xs: 0.6875rem;   /* 11px — mono micro-labels */
+  --text-xs:  0.75rem;
+  --text-sm:  0.8125rem;   /* 13px — denser than default, reads sharper */
+  --text-base:0.9375rem;   /* 15px — body */
+  --text-lg:  1.0625rem;
+  --text-xl:  1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.375rem;
+  --text-5xl: 3rem;
+  --text-6xl: 3.75rem;
+  --text-7xl: 4.5rem;
+  --text-8xl: 5.75rem;
+
+  /* ── Motion · one shared vocabulary so the whole app moves alike ──────── */
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --duration-instant: 120ms;
+  --duration-fast:    200ms;
+  --duration-base:    320ms;
+  --duration-slow:    560ms;
+  --duration-glacial: 900ms;
+
+  /* ── Radii — soft, matching the roundness of water and cloud ──────────── */
+  --radius-xs:  4px;
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  22px;
+  --radius-2xl: 30px;
+}
+
+/* ============================================================================
+   Semantic surface tokens
+   Components reference ONLY these, never raw palette steps. That is what makes
+   the two themes swap cleanly without per-component overrides.
+   ========================================================================== */
+
+:root,
+[data-theme='light'] {
+  --bg:            var(--color-slate-50);
+  --bg-deep:       var(--color-slate-100);
+  --surface:       var(--color-slate-0);
+  --surface-2:     var(--color-slate-100);
+  --surface-3:     var(--color-slate-200);
+  --surface-inset: rgb(100 120 212 / 0.04);
+
+  --border:        rgb(20 30 70 / 0.09);
+  --border-strong: rgb(20 30 70 / 0.16);
+  --border-accent: rgb(100 120 212 / 0.32);
+
+  --text:          var(--color-slate-900);
+  --text-muted:    var(--color-slate-600);
+  --text-subtle:   var(--color-slate-500);
+  --text-onbrand:  #ffffff;
+
+  --brand:         var(--color-primary-600);
+  --brand-hover:   var(--color-primary-700);
+  --brand-soft:    rgb(100 120 212 / 0.10);
+  --brand-ring:    rgb(100 120 212 / 0.28);
+
+  --accent:        var(--color-amber-600);
+  --accent-soft:   rgb(224 168 92 / 0.14);
+
+  --shadow-sm: 0 1px 2px rgb(20 30 70 / 0.05);
+  --shadow-md: 0 4px 16px -2px rgb(20 30 70 / 0.09);
+  --shadow-lg: 0 16px 40px -8px rgb(20 30 70 / 0.14);
+  --shadow-glow: 0 8px 32px -6px rgb(100 120 212 / 0.28);
+
+  /* Ambient hero wash — the dusk sky, gently */
+  --aurora-1: rgb(100 120 212 / 0.16);
+  --aurora-2: rgb(169 155 200 / 0.16);
+  --aurora-3: rgb(224 168 92 / 0.09);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg:            var(--color-slate-950);
+  --bg-deep:       var(--color-slate-1000);
+  --surface:       var(--color-slate-900);
+  --surface-2:     var(--color-slate-850);
+  --surface-3:     var(--color-slate-800);
+  --surface-inset: rgb(255 255 255 / 0.03);
+
+  --border:        rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.15);
+  --border-accent: rgb(125 143 222 / 0.38);
+
+  --text:          #e8ecf6;
+  --text-muted:    var(--color-slate-400);
+  --text-subtle:   var(--color-slate-500);
+  --text-onbrand:  #ffffff;
+
+  /* Lighter than the light-mode brand on purpose: on a #10131f ground a 400
+     step fails AA for small text. 300 clears it and matches the tonal value
+     Stitch derived independently from the same seed. */
+  --brand:         var(--color-primary-300);
+  --brand-hover:   var(--color-primary-200);
+  --brand-soft:    rgb(125 143 222 / 0.14);
+  --brand-ring:    rgb(125 143 222 / 0.34);
+
+  --accent:        var(--color-amber-500);
+  --accent-soft:   rgb(224 168 92 / 0.13);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 18px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 20px 48px -12px rgb(0 0 0 / 0.65);
+  --shadow-glow: 0 8px 36px -6px rgb(100 120 212 / 0.36);
+
+  --aurora-1: rgb(100 120 212 / 0.20);
+  --aurora-2: rgb(169 155 200 / 0.14);
+  --aurora-3: rgb(224 168 92 / 0.08);
+
+  color-scheme: dark;
+}
+
+/* Expose semantic tokens as Tailwind utilities (bg-surface, text-muted, …) */
+@theme inline {
+  --color-bg:            var(--bg);
+  --color-bg-deep:       var(--bg-deep);
+  --color-surface:       var(--surface);
+  --color-surface-2:     var(--surface-2);
+  --color-surface-3:     var(--surface-3);
+  --color-surface-inset: var(--surface-inset);
+  --color-border-hair:   var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-accent: var(--border-accent);
+  --color-fg:            var(--text);
+  --color-fg-muted:      var(--text-muted);
+  --color-fg-subtle:     var(--text-subtle);
+  --color-brand:         var(--brand);
+  --color-brand-hover:   var(--brand-hover);
+  --color-brand-soft:    var(--brand-soft);
+  --color-accent:        var(--accent);
+  --color-accent-soft:   var(--accent-soft);
+}
+
+/* ============================================================================
+   Base layer — global resets and element defaults
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    overflow-x: hidden;
+    /* Theme swap should feel like dusk falling, not a hard cut. */
+    transition: background-color var(--duration-slow) var(--ease-out-quart),
+                color var(--duration-slow) var(--ease-out-quart);
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.028em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  p { text-wrap: pretty; }
+
+  code, kbd, pre, samp { font-family: var(--font-mono); }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* Scrollbar — slim and tinted, never the OS default */
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-clip: content-box; background-color: var(--text-subtle); }
+
+  img, video, canvas, svg { display: block; max-width: 100%; }
+  button { font: inherit; color: inherit; }
+  input, textarea, select { font: inherit; }
+
+  /* Kill the ugly UA autofill wash */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface-2) inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+}
+
+/* ============================================================================
+   Utilities
+   ========================================================================== */
+
+@layer utilities {
+  .font-display { font-family: var(--font-display); }
+  .font-mono    { font-family: var(--font-mono); }
+
+  /* Small uppercase mono label — the technical voice of the product */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+  }
+
+  .text-gradient {
+    background: linear-gradient(105deg, var(--text) 0%, var(--brand) 55%, var(--color-lavender-400) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hairline { border: 1px solid var(--border); }
+
+  /* Frosted panel used by nav, modals and floating controls */
+  .glass {
+    background: color-mix(in oklab, var(--surface) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+  }
+
+  /* Hairline that brightens toward the middle — used on card tops */
+  .edge-light {
+    background-image: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+/* ============================================================================
+   Keyframes
+   ========================================================================== */
+
+@keyframes mk-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes mk-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 var(--brand-ring); }
+  70%  { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes mk-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+@keyframes mk-drift {
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  33%  { transform: translate3d(3%, -4%, 0) scale(1.06); }
+  66%  { transform: translate3d(-3%, 3%, 0) scale(0.97); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+@keyframes mk-sweep {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 20%,
+    color-mix(in oklab, var(--text) 8%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: mk-shimmer 1.8s ease-in-out infinite;
+}
+.animate-pulse-ring { animation: mk-pulse-ring 2s var(--ease-out-quart) infinite; }
+.animate-float      { animation: mk-float 7s ease-in-out infinite; }
+.animate-drift      { animation: mk-drift 26s ease-in-out infinite; }

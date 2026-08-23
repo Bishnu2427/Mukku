@@ -1,0 +1,58 @@
+# ── Everything below is excluded from the Docker build context ───────────────
+# Without this the context would include ~181 MB of generated media plus the
+# Windows venv and node_modules, making builds slow and the image wrong.
+
+# Secrets — provided at RUNTIME via -e / --env-file, never baked into a layer
+.env
+.env.*
+!.env.example
+.mcp.json
+
+# Virtualenvs (Windows-built, useless in a Linux image)
+venv/
+.venv/
+env/
+ENV/
+
+# Node — reinstalled cleanly inside the build stage
+**/node_modules/
+Frontend/dist/
+Frontend/tsconfig.tsbuildinfo
+.vite/
+
+# Generated + user media. Mounted as a volume at runtime instead.
+media/
+outputs/
+
+# Python bytecode
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+
+# VCS and tooling
+.git/
+.gitignore
+.github/
+.claude/
+.vscode/
+.idea/
+
+# Docs, specs and dead weight
+README.md
+CAPABILITIES.md
+CAPABILITIES.txt
+project.txt
+2nd_file.txt
+legacy_frontend_backup/
+Frontend/MIGRATION_CONTRACT.md
+
+# Crash dumps and logs
+*.log
+hs_err_pid*.log
+replay_pid*.log
+
+# Docker's own files
+Dockerfile
+.dockerignore
+docker-compose*.yml

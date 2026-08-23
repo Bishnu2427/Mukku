@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"e:/My_Projects/Mukku/frontend/style.css\")",
+      "Bash(venv/Scripts/pip show:*)",
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(venv/Scripts/python -c \"from moviepy import ImageClip, VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, ColorClip; print\\(''All MoviePy imports OK''\\)\")",
+      "Bash(venv/Scripts/python -c \"from moviepy.video.fx import FadeIn, FadeOut; print\\(''FX imports OK''\\)\")"
+    ]
+  }
+}

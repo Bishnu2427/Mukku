@@ -1,43 +1,70 @@
-# ── Web framework ──────────────────────────────────────────────────────────
-flask
-flask-cors
-python-dotenv
+# =============================================================================
+#  Mukku AI Studio — Python dependencies
+# =============================================================================
+#  Pinned to exact versions (OWASP A06: Vulnerable and Outdated Components).
+#  Unpinned ranges mean two builds of the same commit can install different
+#  code, so a compromised or broken release lands silently and the image you
+#  tested is not the image you shipped. These are the versions verified working
+#  in the production container on 2026-08-23.
+#
+#  Upgrading:
+#    pip install pip-audit && pip-audit -r requirements.txt   # check CVEs
+#    pip install -U <pkg> && pip freeze | grep <pkg>          # re-pin
+#    docker build -t mukku:latest .                           # re-verify
+# =============================================================================
+
+# ── Web framework ────────────────────────────────────────────────────────────
+flask==3.1.3
+flask-cors==6.0.5
+python-dotenv==1.2.3
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
-bcrypt
-flask-limiter
+bcrypt==5.0.0
+flask-limiter==4.1.1
+PyJWT==2.13.0
+# Google OAuth uses the Python stdlib (urllib) — no extra library needed.
 
-# ── Database ────────────────────────────────────────────────────────────────
-pymongo
+# ── Database ─────────────────────────────────────────────────────────────────
+pymongo==4.17.0
 
-# ── LLM (Ollama HTTP client) ────────────────────────────────────────────────
-requests
+# ── Job queue + shared rate-limit storage ────────────────────────────────────
+# Required when QUEUE_BACKEND=redis / RATELIMIT_STORAGE_URI is set. Both
+# degrade to in-process defaults when Redis is absent.
+redis==8.1.0
+rq==2.11.0
 
-# ── Image generation (Stable Diffusion) ────────────────────────────────────
-# Install PyTorch separately first:
-#   CUDA:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-#   CPU:   pip install torch torchvision
-diffusers
-transformers
-accelerate
-Pillow
+# ── Production WSGI server ───────────────────────────────────────────────────
+gunicorn==26.1.0
 
-# ── Voice generation ────────────────────────────────────────────────────────
-# Note: Coqui TTS (TTS package) does NOT support Python 3.12+, so it is excluded.
-# Option 1: pyttsx3 (offline, uses OS built-in voices, no download needed)
-pyttsx3
+# ── HTTP client (Ollama, Groq, Leonardo, Kling, Pollo, Suno) ─────────────────
+requests==2.34.2
 
-# Option 2: gTTS (online, Google TTS, requires internet)
-gTTS
+# ── Imaging ──────────────────────────────────────────────────────────────────
+Pillow==11.3.0
+numpy==2.5.2
 
-# ── Video assembly ──────────────────────────────────────────────────────────
-moviepy
-imageio
-imageio-ffmpeg
+# ── Local Stable Diffusion (OPTIONAL) ────────────────────────────────────────
+# Excluded from the Docker image by default — SKIP_SD=true means this code
+# never runs, and torch + these three add well over 2 GB.
+# Enable with:  docker build --build-arg WITH_LOCAL_SD=true .
+# Install torch separately:
+#   CPU:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   CUDA: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+diffusers==0.35.2
+transformers==4.57.1
+accelerate==1.10.1
 
-# ── API integrations ────────────────────────────────────────────────────────
-PyJWT
-google-genai
+# ── Voice ────────────────────────────────────────────────────────────────────
+# pyttsx3 drives Windows SAPI; on Linux set TTS_ENGINE=gtts.
+# Coqui TTS is excluded — it does not support Python 3.12+.
+pyttsx3==2.99
+gTTS==2.5.4
 
-# ── Utilities ───────────────────────────────────────────────────────────────
-numpy
+# ── Video assembly ───────────────────────────────────────────────────────────
+# moviepy 2.x: imports from `moviepy` directly, not `moviepy.editor`.
+moviepy==2.2.1
+imageio==2.37.4
+imageio-ffmpeg==0.6.0
+
+# ── AI providers ─────────────────────────────────────────────────────────────
+google-genai==2.19.0

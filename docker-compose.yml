@@ -1,0 +1,170 @@
+# =============================================================================
+#  Mukku AI Studio — full production stack
+# =============================================================================
+#  The Dockerfile alone is enough if you already have MongoDB and Redis. This
+#  file brings up the whole system with durable job processing.
+#
+#    docker compose up -d --build          web + worker + mongo + redis
+#    docker compose --profile ollama up -d adds a local Ollama LLM
+#    docker compose logs -f app worker     follow both roles
+#    docker compose up -d --scale worker=3 more concurrent renders
+#    docker compose down                   stop  (named volumes kept)
+#    docker compose down -v                stop and DESTROY data + media
+#
+#  Create a .env next to this file first — see ENV REFERENCE in the Dockerfile.
+#
+#  Why app and worker are separate: generation runs in the worker, so
+#  restarting or redeploying the web tier never kills an in-flight render.
+# =============================================================================
+
+x-app-base: &app-base
+  image: mukku:latest
+  build:
+    context: .
+    args:
+      # "true" bundles local Stable Diffusion (+2 GB, CPU-only, very slow).
+      WITH_LOCAL_SD: "false"
+  restart: unless-stopped
+  env_file: [.env]
+  environment: &app-env
+    # Overrides whatever .env says so services target the compose network.
+    MONGO_URI: mongodb://mongo:27017/
+    REDIS_URL: redis://redis:6379/0
+    # Durable dispatch: enqueue to Redis instead of an in-process thread.
+    QUEUE_BACKEND: redis
+    # One shared rate-limit counter across every worker and container.
+    RATELIMIT_STORAGE_URI: redis://redis:6379/1
+    OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+  volumes:
+    - media:/app/media
+  depends_on:
+    mongo:   { condition: service_healthy }
+    redis:   { condition: service_healthy }
+
+services:
+  # ── Datastores ─────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    # Not published: reachable only on the internal network. Add
+    # ports: ["27017:27017"] if you need to inspect it from the host.
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # appendonly keeps queued jobs across a Redis restart — without it a
+    # crash loses everything still waiting to be picked up.
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # ── Web tier: API + React SPA ──────────────────────────────────────────────
+  app:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      ROLE: web
+    ports:
+      - "${APP_PORT:-7000}:7000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  # ── Worker tier: runs the generation pipeline ──────────────────────────────
+  # Scale with:  docker compose up -d --scale worker=3
+  # Each worker handles one render at a time, so this is your concurrency knob.
+  worker:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      ROLE: worker
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      # Also wait for app: the media volume is seeded from the image on first
+      # mount, and three containers mounting it at once race on mkdir. Letting
+      # app win that race once makes startup deterministic.
+      app:   { condition: service_healthy }
+    healthcheck:
+      # A worker is healthy if it can reach Redis; there is no HTTP port.
+      test: ["CMD", "python", "-c", "import os,redis;redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── Media retention ────────────────────────────────────────────────────────
+  # images/clips/audio after 24h · music/videos/thumbs after 72h · uploads never
+  cleanup:
+    <<: *app-base
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      app:   { condition: service_healthy }   # see note on worker
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          sleep 86400
+          python cleanup_media.py || true
+        done
+    healthcheck:
+      disable: true
+
+  # ── Optional local LLM ─────────────────────────────────────────────────────
+  #   docker compose --profile ollama up -d
+  # Skip this and set GROQ_API_KEY instead — the agents fall back automatically
+  # and Groq is far faster than CPU inference.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  # Pulls the model once, then exits. Without this the first generation
+  # request fails while Ollama downloads several GB.
+  ollama-pull:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    restart: "no"
+    depends_on:
+      ollama: { condition: service_started }
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "pulling ${OLLAMA_MODEL:-llama3} (this can take several minutes)…"
+        until ollama list >/dev/null 2>&1; do sleep 3; done
+        ollama pull "${OLLAMA_MODEL:-llama3}"
+        echo "model ready"
+
+volumes:
+  mongo-data:
+  redis-data:
+  ollama-models:
+  media:
