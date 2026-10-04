@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToast } from '@/providers/ToastProvider'
-import { enquiry, user as userApi, videos } from '@/lib/api'
+import { auth, enquiry, user as userApi, videos } from '@/lib/api'
 import { PLAN_LIMITS, PRICING } from '@/lib/constants'
 import { cn, fmtDate, fmtDateTime, firstName, greeting, relTime } from '@/lib/utils'
 import type { Project, Status } from '@/lib/types'
@@ -36,12 +36,26 @@ export default function Dashboard() {
   const [page, setPage] = useState('overview')
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const { user } = useAuth()
+  const qc = useQueryClient()
 
   const { data: projectData, isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: () => videos.list(50),
   })
   const projects = projectData?.projects ?? []
+
+  // Drop the deleted project from the cache immediately, then refetch so the
+  // count badge and stats stay consistent.
+  const handleDeleted = (id: string) => {
+    type ProjectList = { projects: Project[]; total: number }
+    qc.setQueryData(['projects'], (old: ProjectList | undefined) =>
+      old
+        ? { ...old,
+            projects: old.projects.filter((p: Project) => p.project_id !== id),
+            total: Math.max(0, old.total - 1) }
+        : old)
+    qc.invalidateQueries({ queryKey: ['projects'] })
+  }
 
   const plan = user?.plan ?? 'free'
   const limit = PLAN_LIMITS[plan] ?? 3
@@ -82,11 +96,12 @@ export default function Dashboard() {
         <Overview
           projects={projects}
           loading={projectsLoading}
+          onDeleted={handleDeleted}
           onSeeAll={() => setPage('videos')}
           onUpgrade={() => setUpgradeOpen(true)}
         />
       )}
-      {page === 'videos'   && <VideosPage projects={projects} loading={projectsLoading} />}
+      {page === 'videos'   && <VideosPage projects={projects} loading={projectsLoading} onDeleted={handleDeleted} />}
       {page === 'profile'  && <ProfilePage />}
       {page === 'plan'     && <PlanPage onUpgrade={() => setUpgradeOpen(true)} />}
       {page === 'security' && <SecurityPage />}
@@ -99,8 +114,9 @@ export default function Dashboard() {
 /* ── Overview ─────────────────────────────────────────────────────────────── */
 
 function Overview({
-  projects, loading, onSeeAll, onUpgrade,
+  projects, loading, onSeeAll, onUpgrade, onDeleted,
 }: {
+  onDeleted?: (id: string) => void
   projects: Project[]
   loading: boolean
   onSeeAll: () => void
@@ -187,7 +203,9 @@ function Overview({
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.slice(0, 6).map((p, i) => <VideoCard key={p.project_id} project={p} index={i} />)}
+              {projects.slice(0, 6).map((p, i) => (
+                <VideoCard key={p.project_id} project={p} index={i} onDeleted={onDeleted} />
+              ))}
             </div>
           )}
         </CardBody>
@@ -205,7 +223,9 @@ const FILTERS: { id: Status | 'all'; label: string }[] = [
   { id: 'failed', label: 'Failed' },
 ]
 
-function VideosPage({ projects, loading }: { projects: Project[]; loading: boolean }) {
+function VideosPage({ projects, loading, onDeleted }: {
+  projects: Project[]; loading: boolean; onDeleted?: (id: string) => void
+}) {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Status | 'all'>('all')
 
@@ -267,7 +287,9 @@ function VideosPage({ projects, loading }: { projects: Project[]; loading: boole
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((p, i) => <VideoCard key={p.project_id} project={p} index={i} />)}
+          {shown.map((p, i) => (
+            <VideoCard key={p.project_id} project={p} index={i} onDeleted={onDeleted} />
+          ))}
         </div>
       )}
     </div>
@@ -502,11 +524,48 @@ function SecurityPage() {
 /* ── Upgrade modal ────────────────────────────────────────────────────────── */
 
 function UpgradeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
   const toast = useToast()
   const current = user?.plan ?? 'free'
   const [showEnt, setShowEnt] = useState(false)
   const [ent, setEnt] = useState({ name: '', email: '', company: '', team: '' })
+
+  const [buying, setBuying] = useState<string | null>(null)
+
+  // The webhook is what actually grants the plan, so after checkout closes we
+  // poll our own /api/auth/me rather than trusting anything the browser saw.
+  async function buy(plan: string) {
+    setBuying(plan)
+    try {
+      const { startCheckout, awaitPlanChange } = await import('@/lib/razorpay')
+      const result = await startCheckout(plan)
+
+      if (!result.submitted) {
+        setBuying(null)
+        return                       // user dismissed the modal — say nothing
+      }
+
+      toast.info('Payment received — activating your plan…')
+      const newPlan = await awaitPlanChange(
+        current,
+        async () => (await auth.me()).plan ?? current,
+      )
+
+      if (newPlan) {
+        toast.success(`You're on the ${newPlan} plan.`)
+        await refresh()
+        onClose()
+      } else {
+        toast.info(
+          'Payment confirmed. Your plan will update within a minute — refresh if it lags.',
+        )
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Checkout failed.')
+    } finally {
+      setBuying(null)
+    }
+  }
 
   const send = useMutation({
     mutationFn: () =>
@@ -536,13 +595,14 @@ function UpgradeModal({ open, onClose }: { open: boolean; onClose: () => void })
                 fullWidth size="sm" className="mt-4"
                 variant={isCurrent ? 'secondary' : p.popular ? 'primary' : 'secondary'}
                 disabled={isCurrent}
-                onClick={() =>
-                  p.plan === 'enterprise'
-                    ? setShowEnt(true)
-                    : toast.info('Payment gateway coming soon — Razorpay integration in progress.')
-                }
+                onClick={() => (p.plan === 'enterprise' ? setShowEnt(true) : buy(p.plan))}
+                loading={buying === p.plan}
               >
-                {isCurrent ? 'Current plan' : p.plan === 'enterprise' ? 'Contact sales' : `Get ${p.plan}`}
+                {isCurrent
+                  ? 'Current plan'
+                  : p.plan === 'enterprise'
+                    ? 'Contact sales'
+                    : buying === p.plan ? 'Opening checkout…' : `Get ${p.plan}`}
               </Button>
             </Card>
           )

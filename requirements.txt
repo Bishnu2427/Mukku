@@ -15,6 +15,10 @@
 
 # ── Web framework ────────────────────────────────────────────────────────────
 flask==3.1.3
+# click is left unpinned: gTTS 2.5.4 (the newest release) caps it at <8.2, so
+# the CVE-fixed click 8.3.3 cannot coexist with it. See the accepted-risk note
+# for PYSEC-2026-2132 in SECURITY.md — replacing gTTS with Piper (roadmap T2-2)
+# removes the constraint entirely.
 flask-cors==6.0.5
 python-dotenv==1.2.3
 
@@ -40,19 +44,13 @@ gunicorn==26.1.0
 requests==2.34.2
 
 # ── Imaging ──────────────────────────────────────────────────────────────────
-Pillow==11.3.0
+Pillow==12.3.0
 numpy==2.5.2
 
 # ── Local Stable Diffusion (OPTIONAL) ────────────────────────────────────────
-# Excluded from the Docker image by default — SKIP_SD=true means this code
-# never runs, and torch + these three add well over 2 GB.
-# Enable with:  docker build --build-arg WITH_LOCAL_SD=true .
-# Install torch separately:
-#   CPU:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-#   CUDA: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-diffusers==0.35.2
-transformers==4.57.1
-accelerate==1.10.1
+# Moved to requirements-optional-sd.txt — SKIP_SD=true means it never runs, it
+# adds 2 GB+ to the image, and it carried 10 known CVEs. Install separately if
+# you actually want local SD on a CUDA box.
 
 # ── Voice ────────────────────────────────────────────────────────────────────
 # pyttsx3 drives Windows SAPI; on Linux set TTS_ENGINE=gtts.
@@ -62,8 +60,18 @@ gTTS==2.5.4
 
 # ── Video assembly ───────────────────────────────────────────────────────────
 # moviepy 2.x: imports from `moviepy` directly, not `moviepy.editor`.
-moviepy==2.2.1
-imageio==2.37.4
+#
+# Installed with --no-deps (see below) because moviepy 2.2.1 declares
+# pillow<12.0, which would hold Pillow on 11.3.0 — a release with five known
+# image-parsing CVEs. Mukku decodes user-uploaded images with Pillow, so those
+# are live attack surface, not theoretical. moviepy was verified working on
+# Pillow 12.3.0 (import, ColorClip, Ken Burns render, full pipeline e2e), so
+# the cap is conservative metadata rather than a real incompatibility.
+#
+# Its real runtime deps are listed here explicitly so nothing is lost:
+decorator==4.4.2
+proglog==0.1.12
+imageio==2.37.2
 imageio-ffmpeg==0.6.0
 
 # ── AI providers ─────────────────────────────────────────────────────────────

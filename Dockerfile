@@ -79,7 +79,10 @@ RUN pip install --upgrade pip wheel setuptools && \
     fi && \
     # gunicorn is not in requirements.txt (deploy/setup.sh installs it
     # separately on bare metal); the container needs it explicitly.
-    pip install "gunicorn>=22.0"
+    pip install "gunicorn>=22.0" &&     # moviepy is installed without its dependency metadata so it cannot drag
+    # Pillow back down to a CVE-affected 11.x. Its real deps are pinned in
+    # requirements.txt and already installed above.
+    pip install --no-deps moviepy==2.2.1
 
 # Fail fast if anything the app imports at startup is missing.
 RUN python -c "import flask, flask_cors, flask_limiter, pymongo, bcrypt, jwt, \

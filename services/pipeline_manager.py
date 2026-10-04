@@ -1,5 +1,7 @@
 """Orchestrates the full video generation pipeline in a background thread."""
 
+import os
+import time
 import logging
 import traceback
 import concurrent.futures
@@ -12,9 +14,34 @@ from generators.image_generator import generate_image
 from generators.video_generator import generate_scene_clip, assemble_video
 from generators.voice_generator import generate_voice
 from generators.music_generator import generate_music
-from database.mongo_connection  import update_project
+from database.mongo_connection  import update_project, get_project
+from database.user_model        import increment_video_count
 
 logger = logging.getLogger(__name__)
+
+# T1-5 — render deadline.
+#
+# Clip animation polls a provider 60 times at 10s intervals, per scene, two
+# scenes at a time. Six scenes therefore serialise into three batches of up to
+# ten minutes: ~30 minutes in the clip stage alone, with nothing bounding it
+# from the user's point of view. Past this budget the pipeline stops asking
+# providers for motion and finishes on the Ken Burns fallback instead.
+#
+# A finished video in eight minutes beats a perfect one in forty.
+RENDER_BUDGET_SECONDS = int(os.getenv("RENDER_BUDGET_SECONDS", "900"))   # 15 min
+
+# T3-2 — which tiers may spend money on AI motion.
+#
+# A Veo clip costs roughly $0.40/second, so one 8-second scene is about $3.20.
+# Six scenes is ~$19 against a ₹577 (~$7) Pro subscription — underwater on a
+# single render. Free and Starter therefore render motion locally with Ken
+# Burns, which costs nothing and still produces a finished video.
+#
+# Override per deployment once you have measured real numbers from cost_lines.
+AI_MOTION_TIERS = set(
+    t.strip() for t in os.getenv("AI_MOTION_TIERS", "pro,enterprise,super_admin").split(",")
+    if t.strip()
+)
 
 # project_id -> human-readable stage, so a failure can say WHERE it broke
 # without leaking a traceback to the user.
@@ -41,7 +68,13 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None, use
     user_images = [p for p in user_media if Path(p).suffix.lower() in _IMG_EXT]
     user_videos = [p for p in user_media if Path(p).suffix.lower() in _VID_EXT]
 
-    logger.info("Pipeline started — project: %s  settings: %s", project_id, settings)
+    started_at = time.monotonic()
+
+    def _budget_left() -> float:
+        return RENDER_BUDGET_SECONDS - (time.monotonic() - started_at)
+
+    logger.info("Pipeline started — project: %s  settings: %s  budget: %ds",
+                project_id, settings, RENDER_BUDGET_SECONDS)
     if user_media:
         logger.info("User media — %d image(s): %s  |  %d video(s): %s",
                     len(user_images), user_images, len(user_videos), user_videos)
@@ -123,7 +156,20 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None, use
                    {"step_detail": f"Generating {n} clips…"})
         clip_paths: list[str | None] = [None] * n
 
+        # Decide the motion strategy BEFORE defining the worker that reads it.
+        tier = str(settings.get("tier", "free"))
+        ai_motion = tier in AI_MOTION_TIERS
+        if not ai_motion:
+            logger.info("Tier '%s' renders motion locally — no paid provider.", tier)
+
         def _gen_clip(idx: int, scene: dict, img_path: str | None):
+            # Two separate reasons to render locally: the tier does not include
+            # AI motion at all, or this render has spent its time budget.
+            local_only = (not ai_motion) or _budget_left() <= 0
+            if local_only and img_path and ai_motion:
+                logger.warning(
+                    "Render budget spent — scene %d renders locally instead of "
+                    "waiting on a provider.", idx + 1)
             if idx < len(user_videos):
                 scene_dur = int(scene.get("duration", max(5, duration // n)))
                 path = _prepare_user_video(user_videos[idx], project_id, idx + 1, ar, scene_dur)
@@ -133,7 +179,8 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None, use
             vp        = scene.get("visual_prompt", f"professional scene {idx + 1}")
             scene_dur = int(scene.get("duration", max(5, duration // n)))
             return idx, generate_scene_clip(img_path, vp, project_id, idx + 1,
-                                            duration=scene_dur, aspect_ratio=ar)
+                                            duration=scene_dur, aspect_ratio=ar,
+                                            force_fallback=local_only)
 
         clip_done = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=2,
@@ -214,6 +261,33 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None, use
         })
         logger.info("Pipeline completed — project: %s  video: %s", project_id, video_path)
 
+        # Quota is charged HERE, on success, not at request time. A render that
+        # fails on a provider outage must not cost the user one of their three
+        # monthly videos. increment_video_count also rolls the monthly window
+        # over when the calendar month changes.
+        try:
+            proj = get_project(project_id) or {}
+            owner = proj.get("user_id")
+            if owner:
+                increment_video_count(owner)
+                logger.info("Quota charged to user %s for project %s", owner, project_id)
+        except Exception as exc:
+            logger.error("Could not charge quota for %s: %s", project_id, exc)
+
+        # Tell the user it is done. Failures here are logged and ignored: the
+        # render already succeeded and must not be marked failed over email.
+        try:
+            from services import notify
+            from database.user_model import get_user_by_id
+            owner_doc = get_user_by_id((get_project(project_id) or {}).get("user_id", ""))
+            if owner_doc:
+                notify.video_ready(
+                    owner_doc.get("email", ""), owner_doc.get("name", ""),
+                    project_id, prompt, time.monotonic() - started_at,
+                )
+        except Exception as exc:
+            logger.warning("Completion notification failed for %s: %s", project_id, exc)
+
     except Exception as exc:
         # OWASP A09 / A05: the full traceback used to be written to
         # project.error, which /status returns verbatim to the browser. That
@@ -234,6 +308,17 @@ def run_pipeline(project_id: str, prompt: str, settings: dict | None = None, use
             ),
             "error_internal": err,
         })
+        try:
+            from services import notify
+            from database.user_model import get_user_by_id
+            proj = get_project(project_id) or {}
+            owner_doc = get_user_by_id(proj.get("user_id", ""))
+            if owner_doc:
+                notify.video_failed(owner_doc.get("email", ""), owner_doc.get("name", ""),
+                                    project_id, proj.get("error", ""))
+        except Exception as notify_exc:
+            logger.warning("Failure notification failed for %s: %s", project_id, notify_exc)
+
     finally:
         _current_stage.pop(project_id, None)
 

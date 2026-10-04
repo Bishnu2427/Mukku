@@ -1,0 +1,23 @@
+# =============================================================================
+#  OPTIONAL — local Stable Diffusion image generation
+# =============================================================================
+#  NOT installed by default, and NOT part of the Docker image.
+#
+#  Why it is separate:
+#    * SKIP_SD defaults to true, so this code path never executes. The image
+#      ladder is Leonardo -> (SD) -> PIL placeholder, and SD is skipped.
+#    * torch + these three add well over 2 GB to an image that does not use them.
+#    * They carry known CVEs (pip-audit: 10 across diffusers + transformers as
+#      of 2026-09). Keeping them out of requirements.txt means the security
+#      gate reflects the code you actually ship.
+#
+#  Only install if you have a CUDA GPU and set SKIP_SD=false:
+#      pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#      pip install -r requirements-optional-sd.txt
+#
+#  Versions below are the CVE-fixed releases, not the ones previously pinned.
+# =============================================================================
+
+diffusers==0.38.0
+transformers==5.10.0
+accelerate==1.10.1

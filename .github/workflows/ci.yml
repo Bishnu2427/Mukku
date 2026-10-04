@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install runtime deps
+        # Skip the local Stable Diffusion stack: SKIP_SD defaults to true so that
+        # code path never runs, and diffusers + transformers + accelerate add
+        # over 2 GB to a job that does not need them.
+        run: |
+          grep -viE '^(diffusers|transformers|accelerate)' requirements.txt > ci-requirements.txt
+          pip install -r ci-requirements.txt
+          pip install pytest pytest-cov mongomock
+
+      - name: Run tests
+        # mongomock backs the suite, so no MongoDB service container is needed.
+        env:
+          JWT_SECRET: ci-only-secret-0000000000000000000000000000
+          FLASK_DEBUG: "true"
+          QUEUE_BACKEND: thread
+        run: pytest tests/ -q --cov=backend --cov=database --cov=services --cov-report=term-missing
+
+  frontend:
+    name: Frontend · typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc -b --noEmit
+      - name: Production build
+        run: npm run build
+
+  security:
+    name: Security · dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Audit Python dependencies
+        # Pinned requirements make this meaningful rather than noise. Fails the
+        # job on any known CVE in a pinned version.
+        run: |
+          pip install pip-audit
+          # PYSEC-2026-2132 (click <8.3.3) is unfixable while gTTS 2.5.4 pins
+          # click<8.2. click only parses argv for the flask/gtts CLIs, neither of
+          # which runs in production — the app is served by gunicorn. Tracked for
+          # removal with the Piper voice migration. Every other advisory fails CI.
+          pip-audit -r requirements.txt --strict --ignore-vuln PYSEC-2026-2132
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Audit npm dependencies
+        working-directory: Frontend
+        run: npm audit --audit-level=high
+
+      - name: Fail if a secret looks committed
+        run: |
+          if git ls-files | grep -qE '^\.env$|^\.mcp\.json$'; then
+            echo "::error::A secrets file is tracked in git"
+            exit 1
+          fi
+          echo "no tracked secrets"
+
+  docker:
+    name: Docker · build image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: mukku:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

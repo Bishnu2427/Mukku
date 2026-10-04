@@ -188,6 +188,12 @@ export const videos = {
 
   list: (limit = 50) => request<{ projects: Project[]; total: number }>(`/projects${qs({ limit })}`),
 
+  /** Permanently deletes the project and every artefact it produced. */
+  remove: (id: string) =>
+    request<{ status: string; deleted: string; files_removed: number }>(
+      `/projects/${encodeURIComponent(id)}`, { method: 'DELETE' },
+    ),
+
   /** Plain URLs — consumed by <video src> and <a href>, not fetched. */
   streamUrl: (id: string) => `/video/${encodeURIComponent(id)}`,
   downloadUrl: (id: string) => `/video/${encodeURIComponent(id)}?download=true`,
@@ -204,6 +210,40 @@ export const enquiry = (payload: {
 }) => request<{ status: string }>('/enquiry', { method: 'POST', body: payload })
 
 /* ── Admin ────────────────────────────────────────────────────────────────── */
+
+export interface BillingPlan {
+  id: string
+  amount: number | null   // paise; null = contact sales
+  videos: number          // -1 = unlimited
+  label: string
+}
+
+export interface RazorpayOrder {
+  order_id: string
+  amount: number
+  currency: string
+  key_id: string
+  plan: string
+  name: string
+  email: string
+}
+
+export const billing = {
+  plans: () =>
+    request<{ configured: boolean; currency: string; plans: BillingPlan[] }>(
+      '/api/billing/plans'),
+
+  /** Creates a Razorpay order server-side. The client never sends an amount. */
+  createOrder: (plan: string) =>
+    request<RazorpayOrder>('/api/billing/order', { method: 'POST', body: { plan } }),
+
+  status: () =>
+    request<{
+      plan: string; quota: number; configured: boolean
+      payments: Array<{ order_id: string; plan: string; amount: number
+                        status: string; created_at?: string; paid_at?: string }>
+    }>('/api/billing/status'),
+}
 
 export const admin = {
   stats: () => request<AdminStats>('/api/admin/stats'),

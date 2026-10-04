@@ -13,6 +13,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+from services import cost
+
 ROOT       = Path(__file__).resolve().parent.parent
 CLIPS_DIR  = ROOT / "media" / "clips"
 VIDEOS_DIR = ROOT / "media" / "videos"
@@ -120,42 +122,55 @@ def generate_scene_clip(
     scene_number: int,
     duration: int = 5,
     aspect_ratio: str = "16:9",
+    force_fallback: bool = False,
 ) -> str:
-    """Generate a short video clip. Priority: Veo 3.1 → Kling.ai → Pollo.ai → Ken Burns."""
+    """Generate a short video clip. Priority: Veo 3.1 → Kling.ai → Pollo.ai → Ken Burns.
+
+    force_fallback skips every remote provider and renders locally. The pipeline
+    sets it once a render has exhausted its time budget, so a slow provider can
+    delay a video but can never stall it indefinitely.
+    """
     CLIPS_DIR.mkdir(parents=True, exist_ok=True)
     clip_path = str(CLIPS_DIR / f"{project_id}_scene{scene_number:02d}.mp4")
 
     # 1 — Google Veo 3.1 (uses SDK — confirmed working)
-    if GEMINI_API_KEY:
+    if GEMINI_API_KEY and not force_fallback:
         try:
             _veo_generate(image_path, visual_prompt, clip_path, duration, aspect_ratio)
             logger.info("Veo 3.1 clip saved: %s", clip_path)
+            # Veo bills per second of output and is by far the dearest call in
+            # the pipeline — one clip can outweigh a whole render's other costs.
+            cost.record(project_id, "generating_clips", "veo",
+                        seconds=min(max(int(duration), 5), 8))
             return clip_path
         except Exception as exc:
             logger.warning("Veo 3.1 failed (%s) — trying Kling.ai.", exc)
 
     # 2 — Kling.ai
-    if KLING_ACCESS_KEY and KLING_SECRET_KEY:
+    if KLING_ACCESS_KEY and KLING_SECRET_KEY and not force_fallback:
         try:
             url = _kling_image_to_video(image_path, visual_prompt, duration)
             _download_file(url, clip_path)
             logger.info("Kling.ai clip saved: %s", clip_path)
+            cost.record(project_id, "generating_clips", "kling", clips=1)
             return clip_path
         except Exception as exc:
             logger.warning("Kling.ai failed (%s) — trying Pollo.ai.", exc)
 
     # 3 — Pollo.ai
-    if POLLO_API_KEY:
+    if POLLO_API_KEY and not force_fallback:
         try:
             url = _pollo_image_to_video(image_path, visual_prompt, duration)
             _download_file(url, clip_path)
             logger.info("Pollo.ai clip saved: %s", clip_path)
+            cost.record(project_id, "generating_clips", "pollo", clips=1)
             return clip_path
         except Exception as exc:
             logger.warning("Pollo.ai failed (%s) — using Ken Burns fallback.", exc)
 
     # 4 — Ken Burns static zoom (always works)
     logger.info("Using Ken Burns static clip for scene %d.", scene_number)
+    cost.record(project_id, "generating_clips", "ken_burns", clips=1)
     vid_w, vid_h = _AR_DIMS.get(aspect_ratio, (1024, 576))
     return _moviepy_static_clip(image_path, clip_path, duration, vid_w, vid_h,
                                 scene_idx=scene_number - 1)

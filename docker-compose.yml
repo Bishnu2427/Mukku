@@ -25,7 +25,9 @@ x-app-base: &app-base
       # "true" bundles local Stable Diffusion (+2 GB, CPU-only, very slow).
       WITH_LOCAL_SD: "false"
   restart: unless-stopped
-  env_file: [.env]
+  # .env.docker, not .env: --env-file overrides the image's ENV defaults, and
+  # the Windows .env would force TTS_ENGINE=pyttsx3 (unusable on Linux).
+  env_file: [.env.docker]
   environment: &app-env
     # Overrides whatever .env says so services target the compose network.
     MONGO_URI: mongodb://mongo:27017/

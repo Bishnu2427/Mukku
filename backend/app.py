@@ -21,13 +21,14 @@ load_dotenv(ROOT / ".env")
 
 from database.mongo_connection import (
     create_project, get_project, list_projects, list_projects_for_user,
-    reconcile_stale_projects,
+    reconcile_stale_projects, count_active_projects, delete_project,
 )
 from database.user_model import _ensure_indexes, seed_super_admin
 from backend.extensions import limiter, _storage_uri, safe_int, LIMIT_ENQUIRY
 from services import job_queue
 from backend.auth import auth_bp
 from backend.admin_api import admin_bp
+from backend.billing import billing_bp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -141,17 +142,29 @@ else:
 #
 # cdnjs is gone — three.js is bundled now, so no third-party script origin
 # is trusted at all.
+# Razorpay Checkout is the one third-party script the app loads, and only on
+# the upgrade flow. It is scoped to Razorpay's own origins — no wildcard, no
+# 'unsafe-inline' — so the XSS posture elsewhere is unchanged. Dropped
+# automatically when billing is not configured, so a deployment without
+# payments trusts nothing external at all.
+_RZP_CONFIGURED = bool(os.getenv("RAZORPAY_KEY_ID", "").strip())
+_RZP_SCRIPT  = " https://checkout.razorpay.com" if _RZP_CONFIGURED else ""
+_RZP_FRAME   = (" https://api.razorpay.com https://checkout.razorpay.com"
+                if _RZP_CONFIGURED else "")
+_RZP_CONNECT = (" https://api.razorpay.com https://lumberjack.razorpay.com"
+                if _RZP_CONFIGURED else "")
+
 _CSP = "; ".join([
     "default-src 'self'",
-    "script-src 'self'",
+    f"script-src 'self'{_RZP_SCRIPT}",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     # Google profile pictures for OAuth users; data:/blob: for upload previews.
     "img-src 'self' data: blob: https://lh3.googleusercontent.com",
     "media-src 'self' blob:",
-    "connect-src 'self'",
+    f"connect-src 'self'{_RZP_CONNECT}",
     "frame-ancestors 'none'",
-    "frame-src 'none'",
+    f"frame-src{_RZP_FRAME or chr(32) + chr(39) + 'none' + chr(39)}",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -203,6 +216,7 @@ def set_security_headers(response):
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(billing_bp)
 
 # Auth endpoint limits are declared with @limiter.limit at each view in
 # backend/auth.py. They used to be applied here against app.view_functions,
@@ -361,14 +375,27 @@ def generate():
     limit        = _PLAN_LIMITS.get(role if role in ("super_admin", "enterprise") else plan, 3)
     used         = current_user.get("videos_this_month", 0)
 
-    if limit != -1 and used >= limit:
+    # Renders already running count against the quota too. Without this a user
+    # can fire N concurrent requests before any of them completes, and every
+    # one passes the check because videos_this_month has not moved yet.
+    in_flight = count_active_projects(user_id)
+
+    if limit != -1 and (used + in_flight) >= limit:
         return jsonify({
             "error":   "quota_exceeded",
-            "message": f"You've used {used}/{limit} videos this month.",
-            "plan":    plan,
-            "used":    used,
-            "limit":   limit,
+            "message": (
+                f"You've used {used}/{limit} videos this month."
+                + (f" {in_flight} more still rendering." if in_flight else "")
+            ),
+            "plan":      plan,
+            "used":      used,
+            "limit":     limit,
+            "in_flight": in_flight,
         }), 402
+
+    # The pipeline picks providers by entitlement (T3-2), so it needs the tier.
+    # Resolved here from the authenticated user — never sent by the client.
+    settings["tier"] = role if role in ("super_admin", "enterprise") else plan
 
     project_id = uuid.uuid4().hex[:10]
     create_project(project_id, prompt, settings, user_id=user_id)
@@ -544,6 +571,65 @@ def projects():
             "has_video":     bool(item.get("video_path") and os.path.exists(item.get("video_path", ""))),
         })
     return jsonify({"projects": result, "total": len(result)})
+
+
+
+@app.route("/projects/<project_id>", methods=["DELETE"])
+def delete_project_route(project_id: str):
+    """Permanently delete a project and every artefact it produced.
+
+    Users own their data: this removes the database row, the final MP4, the
+    thumbnail, and every intermediate scene asset — images, clips and audio —
+    plus anything the user uploaded for it. India's DPDP Act grants a right to
+    erasure, and media/uploads/ holds user-supplied photographs, so a delete
+    that only hid the row would not be a delete.
+    """
+    project, current_user = _owned_project(project_id)
+    if not project:
+        return jsonify({"error": "Project not found."}), 404
+
+    # A render in flight would keep writing files after we removed them.
+    if project.get("status") in ("queued", "processing"):
+        return jsonify({
+            "error": "This video is still generating. Wait for it to finish, then delete it."
+        }), 409
+
+    removed = 0
+
+    # Final video + thumbnail, addressed directly.
+    for path in (project.get("video_path"), str(THUMBS_DIR / f"{project_id}.jpg")):
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+                removed += 1
+            except OSError as exc:
+                logger.warning("Could not remove %s: %s", path, exc)
+
+    # Intermediates are all named <project_id>_*, so a glob per directory
+    # catches scene images, clips, voice tracks and the music bed.
+    import glob as _glob
+    for folder in ("images", "clips", "audio", "music", "videos"):
+        for path in _glob.glob(str(ROOT / "media" / folder / f"{project_id}_*")):
+            try:
+                os.remove(path)
+                removed += 1
+            except OSError as exc:
+                logger.warning("Could not remove %s: %s", path, exc)
+
+    # The whole upload folder for this project, including the user's originals.
+    upload_dir = UPLOADS_DIR / project_id
+    if upload_dir.is_dir():
+        import shutil as _shutil
+        try:
+            removed += len(list(upload_dir.iterdir()))
+            _shutil.rmtree(upload_dir)
+        except OSError as exc:
+            logger.warning("Could not remove upload dir %s: %s", upload_dir, exc)
+
+    delete_project(project_id)
+    logger.info("Project %s deleted by %s — %d file(s) removed",
+                project_id, current_user["user_id"], removed)
+    return jsonify({"status": "ok", "deleted": project_id, "files_removed": removed})
 
 
 @app.route("/health", methods=["GET"])

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Download, Film, Play, RefreshCw } from 'lucide-react'
+import { Download, Film, Play, RefreshCw, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Primitives'
 import { videos } from '@/lib/api'
+import { ConfirmDialog } from '@/components/ui/Modal'
+import { useToast } from '@/providers/ToastProvider'
 import { fmtDate, truncate } from '@/lib/utils'
 import type { Project } from '@/lib/types'
 
@@ -14,9 +16,37 @@ const STATUS_TONE = {
   queued: 'neutral',
 } as const
 
-export function VideoCard({ project, index = 0 }: { project: Project; index?: number }) {
+export function VideoCard({
+  project, index = 0, onDeleted,
+}: {
+  project: Project
+  index?: number
+  /** Called after a successful delete so the parent can drop it from the list. */
+  onDeleted?: (projectId: string) => void
+}) {
   const [playing, setPlaying] = useState(false)
   const [thumbFailed, setThumbFailed] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const toast = useToast()
+
+  const rendering = project.status === 'processing' || project.status === 'queued'
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      const res = await videos.remove(project.project_id)
+      toast.success(
+        res.files_removed
+          ? `Video deleted · ${res.files_removed} file${res.files_removed === 1 ? '' : 's'} removed`
+          : 'Video deleted',
+      )
+      onDeleted?.(project.project_id)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not delete this video.')
+      setDeleting(false)
+    }
+  }
   const done = project.status === 'completed'
   const tone = STATUS_TONE[project.status] ?? 'neutral'
 
@@ -99,9 +129,28 @@ export function VideoCard({ project, index = 0 }: { project: Project; index?: nu
                 Remake
               </span>
             </a>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              disabled={deleting || rendering}
+              title={rendering ? 'Wait for this video to finish rendering' : 'Delete permanently'}
+              aria-label="Delete video"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border-hair text-fg-subtle transition-colors hover:border-[var(--color-danger-500)] hover:text-[var(--color-danger-500)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 size={12} />
+            </button>
           </div>
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete this video?"
+        message="The video, its scene images, clips and voice tracks, and anything you uploaded for it are removed permanently. This cannot be undone."
+        confirmLabel="Delete permanently"
+      />
     </motion.div>
   )
 }

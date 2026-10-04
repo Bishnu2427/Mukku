@@ -76,4 +76,5 @@ LIMIT_FORGOT_PASSWORD = "5 per minute"
 LIMIT_RESET_PASSWORD  = "5 per minute"
 # /enquiry was previously unlimited: an unauthenticated endpoint that sends
 # email is a spam relay without a cap.
+LIMIT_BILLING        = "10 per minute"
 LIMIT_ENQUIRY         = "5 per minute"

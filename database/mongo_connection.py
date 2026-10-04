@@ -1,7 +1,7 @@
 """MongoDB connection and CRUD helpers for the AI Content Agent."""
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pymongo import MongoClient
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
@@ -43,8 +43,8 @@ def create_project(project_id: str, prompt: str, settings: dict = None,
         "audio_paths":  [],
         "video_path":   None,
         "error":        None,
-        "created_at":   datetime.utcnow(),
-        "updated_at":   datetime.utcnow(),
+        "created_at":   datetime.now(timezone.utc),
+        "updated_at":   datetime.now(timezone.utc),
     }
     _get_db()["projects"].insert_one(project)
     return project
@@ -57,11 +57,30 @@ def get_project(project_id: str) -> dict | None:
 
 
 def update_project(project_id: str, updates: dict) -> None:
-    updates["updated_at"] = datetime.utcnow()
+    updates["updated_at"] = datetime.now(timezone.utc)
     _get_db()["projects"].update_one(
         {"project_id": project_id},
         {"$set": updates},
     )
+
+
+def delete_project(project_id: str) -> bool:
+    """Remove a project document. Media files are handled by the caller."""
+    res = _get_db()["projects"].delete_one({"project_id": project_id})
+    return res.deleted_count > 0
+
+
+def count_active_projects(user_id: str) -> int:
+    """Renders currently queued or running for this user.
+
+    Counted against the quota alongside videos_this_month, so firing several
+    /generate requests in parallel cannot slip past the plan limit while none
+    of them has completed yet.
+    """
+    return _get_db()["projects"].count_documents({
+        "user_id": user_id,
+        "status": {"$in": ["queued", "processing"]},
+    })
 
 
 def reconcile_stale_projects(max_idle_minutes: int = 45) -> int:
@@ -78,7 +97,7 @@ def reconcile_stale_projects(max_idle_minutes: int = 45) -> int:
     """
     from datetime import timedelta
 
-    cutoff = datetime.utcnow() - timedelta(minutes=max_idle_minutes)
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_idle_minutes)
     result = _get_db()["projects"].update_many(
         {
             "status": {"$in": ["queued", "processing"]},
@@ -93,7 +112,7 @@ def reconcile_stale_projects(max_idle_minutes: int = 45) -> int:
                     "Generation was interrupted — the server restarted while this "
                     "video was rendering. Please try again."
                 ),
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
             }
         },
     )

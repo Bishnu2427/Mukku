@@ -12,6 +12,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+from services import cost
+
 ROOT      = Path(__file__).resolve().parent.parent
 AUDIO_DIR = ROOT / "media" / "audio"
 
@@ -36,6 +38,7 @@ def generate_music(topic: str, tone: str, duration: int, project_id: str) -> str
         audio_url = _poll(task_id)
         _download_file(audio_url, output_path)
         logger.info("Suno music saved: %s", output_path)
+        cost.record(project_id, "generating_music", "suno", tracks=1)
         return output_path
     except Exception as exc:
         logger.warning("Suno music generation failed (%s) — continuing without music.", exc)

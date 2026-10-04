@@ -14,6 +14,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+from services import cost
+
 ROOT             = Path(__file__).resolve().parent.parent
 IMAGES_DIR       = ROOT / "media" / "images"
 
@@ -78,6 +80,7 @@ def generate_image(visual_prompt: str, project_id: str, scene_number: int,
                 url = fut.result(timeout=180)
             _download_file(url, filepath)
             logger.info("Leonardo.ai image saved: %s", filepath)
+            cost.record(project_id, "generating_images", "leonardo", images=1)
             return filepath
         except concurrent.futures.TimeoutError:
             logger.warning("Leonardo.ai hard-timeout (180 s) for scene %d — using placeholder.", scene_number)
@@ -90,6 +93,7 @@ def generate_image(visual_prompt: str, project_id: str, scene_number: int,
         except Exception as exc:
             logger.warning("Stable Diffusion failed (%s) — using placeholder.", exc)
 
+    cost.record(project_id, "generating_images", "placeholder", images=1)
     return _generate_placeholder(visual_prompt, filepath, scene_number)
 
 
