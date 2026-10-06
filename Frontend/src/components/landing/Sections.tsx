@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import {
-  ArrowRight, Check, ChevronDown, FileText, Film, Image as ImageIcon,
-  Languages as LangIcon, Layers, Music, ScanSearch, Sparkles, Upload, Volume2, Wand2,
-} from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, Film, Music, Sparkles, Upload, Wand2, Languages as LangIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge, SectionHeading } from '@/components/ui/Primitives'
@@ -28,54 +25,6 @@ function Section({ id, children, alt = false }: { id?: string; children: React.R
 }
 
 /* ── How it works — the 8 stages ──────────────────────────────────────────── */
-
-const STAGES = [
-  { icon: ScanSearch, name: 'Analyse',  desc: 'Your prompt becomes topic, tone, audience and length.' },
-  { icon: FileText,   name: 'Script',   desc: 'A full narration script, written to your chosen tone.' },
-  { icon: Layers,     name: 'Scenes',   desc: 'The script is split into shots with visual directions.' },
-  { icon: ImageIcon,  name: 'Images',   desc: 'One crafted still per scene, in your chosen style.' },
-  { icon: Film,       name: 'Clips',    desc: 'Every still becomes motion with real camera moves.' },
-  { icon: Volume2,    name: 'Voice',    desc: 'Narration recorded in any of twelve languages.' },
-  { icon: Music,      name: 'Music',    desc: 'An original score matched to the mood of your video.' },
-  { icon: Wand2,      name: 'Assemble', desc: 'Everything merged, graded and captioned into one MP4.' },
-]
-
-export function HowItWorks() {
-  return (
-    <Section id="how">
-      <SectionHeading
-        eyebrow="The pipeline"
-        title="Eight stages, one prompt"
-        description="Each stage hands off to the next automatically. You watch it happen live — script and scenes appear the moment they are ready."
-      />
-      <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {STAGES.map((s, i) => (
-          <motion.div
-            key={s.name}
-            variants={reveal}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ delay: i * 0.05 }}
-          >
-            <Card edge className="group h-full p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="grid h-10 w-10 place-items-center rounded-xl border border-border-accent bg-brand-soft text-brand transition-transform duration-300 group-hover:scale-110">
-                  <s.icon size={17} />
-                </span>
-                <span className="font-mono text-2xs text-fg-subtle">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-              </div>
-              <h3 className="font-display text-base font-semibold text-fg">{s.name}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{s.desc}</p>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-    </Section>
-  )
-}
 
 /* ── Features ─────────────────────────────────────────────────────────────── */
 

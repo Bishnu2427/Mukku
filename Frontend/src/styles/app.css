@@ -402,3 +402,39 @@
 .animate-pulse-ring { animation: mk-pulse-ring 2s var(--ease-out-quart) infinite; }
 .animate-float      { animation: mk-float 7s ease-in-out infinite; }
 .animate-drift      { animation: mk-drift 26s ease-in-out infinite; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Hero backdrop sheets
+   Composited transforms only. These replaced a three.js point cloud that
+   repositioned ~9,600 vertices per frame in JavaScript; these cost the
+   compositor one matrix multiply each and never repaint.
+   ───────────────────────────────────────────────────────────────────────── */
+.mk-sheet {
+  position: absolute;
+  inset: -40%;
+  border-radius: 45%;
+  will-change: transform;
+  /* promote once, up front, rather than on every frame */
+  transform: translateZ(0) rotate(0deg);
+  opacity: .5;
+}
+.mk-sheet-a {
+  background: conic-gradient(from 120deg at 50% 50%,
+              transparent 0deg, var(--aurora-1) 90deg,
+              transparent 190deg, var(--aurora-3) 280deg, transparent 360deg);
+  animation: mk-rotate 64s linear infinite;
+}
+.mk-sheet-b {
+  background: conic-gradient(from 300deg at 50% 50%,
+              transparent 0deg, var(--aurora-2) 110deg, transparent 240deg);
+  animation: mk-rotate 92s linear infinite reverse;
+  opacity: .34;
+}
+@keyframes mk-rotate { to { transform: translateZ(0) rotate(360deg); } }
+
+/* Scroll-linked progress rail used by the pipeline section. */
+.mk-rail { transform-origin: top; will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-sheet { animation: none; }
+}

@@ -1,179 +1,182 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
-import * as THREE from 'three'
-import { useTheme } from '@/providers/ThemeProvider'
-import { prefersReducedMotion } from '@/lib/utils'
-
 /**
- * "Dusk on the Lake" — the hero backdrop.
+ * WebGL hero backdrop, driven entirely by a fragment shader.
  *
- * Two layers, both point clouds so it stays cheap on integrated GPUs:
- *   1. WaveField — a grid on the XZ plane displaced by crossed sine waves.
- *      Reads as the still water in the reference photograph.
- *   2. Motes     — slow drifting particles, most periwinkle, a few amber.
- *      Those warm ones are the town lights on the far shore.
+ * Performance contract — this is the part that makes it fast rather than the
+ * thing that made the page lag before:
  *
- * Honours prefers-reduced-motion by rendering a single static frame.
+ *   • Geometry is one fullscreen triangle. Nothing is ever re-uploaded.
+ *   • All animation happens in GLSL. useFrame writes three floats per frame
+ *     (time + pointer). There is no JavaScript loop over vertices.
+ *   • The render loop is switched OFF entirely when the hero scrolls out of
+ *     view or the tab is hidden — not merely throttled.
+ *   • DPR is capped at 1.5. A 4K display would otherwise shade 4× the pixels
+ *     for a backdrop nobody inspects.
+ *   • Honours prefers-reduced-motion by rendering one static frame.
+ *
+ * Colours come from the live theme tokens, so it follows light/dark without a
+ * second palette.
  */
 
-const PERIWINKLE = new THREE.Color('#7d8fde')
-const LAVENDER   = new THREE.Color('#a99bc8')
-const AMBER      = new THREE.Color('#e0a85c')
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import * as THREE from 'three'
+import { fragmentShader, vertexShader } from './DuskShader'
 
-function WaveField({ dim = 96, spacing = 0.62 }: { dim?: number; spacing?: number }) {
-  const ref = useRef<THREE.Points>(null)
-  const still = prefersReducedMotion()
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
 
-  const { positions, colors, base } = useMemo(() => {
-    const count = dim * dim
-    const positions = new Float32Array(count * 3)
-    const colors = new Float32Array(count * 3)
-    const base = new Float32Array(count * 2)
-    const half = (dim * spacing) / 2
-    let i = 0
-    for (let x = 0; x < dim; x++) {
-      for (let z = 0; z < dim; z++) {
-        const px = x * spacing - half
-        const pz = z * spacing - half
-        positions[i * 3] = px
-        positions[i * 3 + 1] = 0
-        positions[i * 3 + 2] = pz
-        base[i * 2] = px
-        base[i * 2 + 1] = pz
+function useThemeColours() {
+  const [theme, setTheme] = useState<string>(
+    () => document.documentElement.getAttribute('data-theme') ?? 'dark',
+  )
 
-        // Fade from periwinkle at the horizon to lavender near the camera,
-        // mirroring how the sky colour sinks into the water in the photo.
-        const t = THREE.MathUtils.clamp((pz + half) / (dim * spacing), 0, 1)
-        const c = PERIWINKLE.clone().lerp(LAVENDER, t)
-        colors[i * 3] = c.r
-        colors[i * 3 + 1] = c.g
-        colors[i * 3 + 2] = c.b
-        i++
-      }
+  // Re-read when the toggle flips data-theme.
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setTheme(document.documentElement.getAttribute('data-theme') ?? 'dark'))
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+
+  return useMemo(() => {
+    const dark = theme !== 'light'
+    return {
+      sky:     new THREE.Color(dark ? '#0d1120' : '#eef1f9'),
+      horizon: new THREE.Color(dark ? '#3d4a8f' : '#aab9e4'),
+      deep:    new THREE.Color(dark ? '#080a12' : '#dbe3f3'),
+      warm:    new THREE.Color(cssVar('--color-amber-500', '#E0A85C')),
     }
-    return { positions, colors, base }
-  }, [dim, spacing])
+  }, [theme])
+}
 
-  useFrame(({ clock }) => {
-    if (still || !ref.current) return
-    const t = clock.getElapsedTime() * 0.32
-    const arr = ref.current.geometry.attributes.position.array as Float32Array
-    for (let i = 0; i < base.length / 2; i++) {
-      const x = base[i * 2]
-      const z = base[i * 2 + 1]
-      arr[i * 3 + 1] =
-        Math.sin(x * 0.22 + t) * 0.5 +
-        Math.cos(z * 0.17 - t * 0.8) * 0.42 +
-        Math.sin((x + z) * 0.09 + t * 0.5) * 0.3
+function ShaderField({ reduced }: { reduced: boolean }) {
+  const mat = useRef<THREE.ShaderMaterial>(null)
+  const { size } = useThree()
+  const colours = useThemeColours()
+  // Eased pointer, so parallax glides instead of snapping.
+  const pointer = useRef(new THREE.Vector2(0, 0))
+  const target = useRef(new THREE.Vector2(0, 0))
+
+  const uniforms = useMemo(
+    () => ({
+      uTime:       { value: 0 },
+      uResolution: { value: new THREE.Vector2(1, 1) },
+      uPointer:    { value: new THREE.Vector2(0, 0) },
+      uIntensity:  { value: 1 },
+      uSky:        { value: colours.sky },
+      uHorizon:    { value: colours.horizon },
+      uDeep:       { value: colours.deep },
+      uWarm:       { value: colours.warm },
+    }),
+    // colours are written in an effect below; rebuilding uniforms would
+    // recompile the shader on every theme flip.
+    [],  // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  useEffect(() => {
+    uniforms.uSky.value = colours.sky
+    uniforms.uHorizon.value = colours.horizon
+    uniforms.uDeep.value = colours.deep
+    uniforms.uWarm.value = colours.warm
+  }, [colours, uniforms])
+
+  useEffect(() => {
+    uniforms.uResolution.value.set(size.width, size.height)
+  }, [size, uniforms])
+
+  useEffect(() => {
+    if (reduced) return
+    const onMove = (e: PointerEvent) => {
+      target.current.set(
+        (e.clientX / window.innerWidth) * 2 - 1,
+        -((e.clientY / window.innerHeight) * 2 - 1),
+      )
     }
-    ref.current.geometry.attributes.position.needsUpdate = true
+    window.addEventListener('pointermove', onMove, { passive: true })
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [reduced])
+
+  useFrame((state) => {
+    if (!mat.current) return
+    // Three float writes. That is the entire per-frame CPU cost.
+    uniforms.uTime.value = reduced ? 8 : state.clock.elapsedTime
+    pointer.current.lerp(target.current, 0.045)
+    uniforms.uPointer.value.copy(pointer.current)
   })
 
   return (
-    <points ref={ref} rotation={[0, 0, 0]} position={[0, -6, 0]}>
+    <mesh frustumCulled={false}>
+      {/* A single triangle larger than the viewport: one fewer vertex than a
+          quad and no diagonal seam. */}
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+        <bufferAttribute
+          attach="attributes-position"
+          args={[new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3]}
+        />
+        <bufferAttribute
+          attach="attributes-uv"
+          args={[new Float32Array([0, 0, 2, 0, 0, 2]), 2]}
+        />
       </bufferGeometry>
-      <pointsMaterial
-        size={0.075}
-        vertexColors
+      <shaderMaterial
+        ref={mat}
+        uniforms={uniforms}
+        vertexShader={vertexShader}
+        fragmentShader={fragmentShader}
         transparent
-        opacity={0.72}
-        sizeAttenuation
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
       />
-    </points>
+    </mesh>
   )
-}
-
-function Motes({ count = 420 }: { count?: number }) {
-  const ref = useRef<THREE.Points>(null)
-  const still = prefersReducedMotion()
-
-  const { positions, colors, speeds } = useMemo(() => {
-    const positions = new Float32Array(count * 3)
-    const colors = new Float32Array(count * 3)
-    const speeds = new Float32Array(count)
-    for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 46
-      positions[i * 3 + 1] = Math.random() * 20 - 4
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 30
-      // ~12% warm. Sparse on purpose — that scarcity is what makes them read
-      // as distant lights rather than decoration.
-      const c = Math.random() < 0.12 ? AMBER : PERIWINKLE.clone().lerp(LAVENDER, Math.random())
-      colors[i * 3] = c.r
-      colors[i * 3 + 1] = c.g
-      colors[i * 3 + 2] = c.b
-      speeds[i] = 0.12 + Math.random() * 0.3
-    }
-    return { positions, colors, speeds }
-  }, [count])
-
-  useFrame(({ clock }) => {
-    if (still || !ref.current) return
-    const t = clock.getElapsedTime()
-    const arr = ref.current.geometry.attributes.position.array as Float32Array
-    for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] += speeds[i] * 0.006
-      if (arr[i * 3 + 1] > 16) arr[i * 3 + 1] = -6
-      arr[i * 3] += Math.sin(t * 0.22 + i) * 0.0016
-    }
-    ref.current.geometry.attributes.position.needsUpdate = true
-  })
-
-  return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.13}
-        vertexColors
-        transparent
-        opacity={0.85}
-        sizeAttenuation
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
-  )
-}
-
-/** Eased camera parallax. Pointer only — no gyroscope surprises on mobile. */
-function CameraRig() {
-  const { camera, pointer } = useThree()
-  const still = prefersReducedMotion()
-  useFrame(() => {
-    if (still) return
-    camera.position.x += (pointer.x * 2.6 - camera.position.x) * 0.028
-    camera.position.y += (2.2 + pointer.y * 1.2 - camera.position.y) * 0.028
-    camera.lookAt(0, -1.5, 0)
-  })
-  return null
 }
 
 export default function DuskScene({ className }: { className?: string }) {
-  const { theme } = useTheme()
-  const fog = theme === 'dark' ? '#10131f' : '#f6f8fc'
+  const host = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState(true)
+  const reduced = useMemo(
+    () => typeof window !== 'undefined'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  )
+
+  // Stop the render loop completely when the hero is off screen or the tab is
+  // backgrounded. A paused WebGL canvas costs nothing; a running one costs a
+  // full-screen shader pass every frame forever.
+  useEffect(() => {
+    const el = host.current
+    if (!el) return
+
+    let onScreen = true
+    const sync = () => setActive(onScreen && document.visibilityState === 'visible')
+
+    const io = new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; sync() },
+                                        { threshold: 0.01 })
+    io.observe(el)
+    document.addEventListener('visibilitychange', sync)
+    return () => { io.disconnect(); document.removeEventListener('visibilitychange', sync) }
+  }, [])
 
   return (
-    <div className={className} aria-hidden>
+    <div ref={host} className={className} aria-hidden>
       <Canvas
-        // Cap DPR — a retina laptop otherwise renders 4x the pixels for a
-        // background nobody is inspecting closely.
-        dpr={[1, 1.6]}
-        camera={{ position: [0, 2.2, 15], fov: 62 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        // Pause the loop whenever the tab is hidden.
-        frameloop="always"
+        // Reduced motion renders a single frame and then stops.
+        frameloop={reduced ? 'demand' : active ? 'always' : 'never'}
+        dpr={[1, 1.5]}
+        gl={{
+          antialias: false,        // the shader is smooth; MSAA buys nothing
+          alpha: true,
+          powerPreference: 'high-performance',
+          stencil: false,
+          depth: false,
+        }}
+        // Orthographic with no camera work — the triangle is already in clip space.
+        orthographic
+        camera={{ position: [0, 0, 1] }}
       >
-        <fog attach="fog" args={[fog, 14, 40]} />
-        <CameraRig />
-        <WaveField />
-        <Motes />
+        <ShaderField reduced={reduced} />
       </Canvas>
     </div>
   )

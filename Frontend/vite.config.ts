@@ -35,8 +35,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
-          charts: ['recharts'],
+          // three + R3F render the hero shader. Split into its own chunk and
+          // lazy-imported by Hero, so WebGL never blocks first paint — the
+          // headline must land before the backdrop does.
+          three: ['three', '@react-three/fiber'],
+          charts: ['recharts'],          // admin only, lazy-loaded with the route
           vendor: ['react', 'react-dom', 'react-router-dom'],
         },
       },

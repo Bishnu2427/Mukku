@@ -2,8 +2,9 @@ import { MarketingNav } from '@/components/layout/MarketingNav'
 import { Footer } from '@/components/layout/Footer'
 import { Hero } from '@/components/landing/Hero'
 import {
-  ClosingCta, Contact, Faq, Features, HowItWorks, Languages, Platforms, Pricing,
+  ClosingCta, Contact, Faq, Features, Languages, Platforms, Pricing,
 } from '@/components/landing/Sections'
+import { HowItWorks } from '@/components/landing/HowItWorks'
 
 export default function Landing() {
   return (
