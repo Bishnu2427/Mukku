@@ -80,7 +80,11 @@ def enqueue_pipeline(project_id: str, prompt: str, settings: dict,
             job = q.enqueue(
                 PIPELINE_TASK,
                 project_id, prompt, settings, user_media,
-                job_id=f"pipeline:{project_id}",
+                # RQ rejects ":" in job ids — it reserves the colon for its own Redis
+                # key namespacing. Using one made every enqueue raise, and the
+                # except below silently downgraded every render to an in-process
+                # thread, so the worker never did any work.
+                job_id=f"pipeline-{project_id}",
                 job_timeout=JOB_TIMEOUT,
                 result_ttl=RESULT_TTL,
                 failure_ttl=FAILURE_TTL,

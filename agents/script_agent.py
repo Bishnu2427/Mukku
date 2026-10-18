@@ -7,7 +7,10 @@ logger = logging.getLogger(__name__)
 OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_MODEL   = "llama-3.3-70b-versatile"
+# Groq retired llama-3.3-70b-versatile; requests for it 404 and silently
+# drop every render onto the hardcoded fallback script. Configurable so a
+# future retirement is an env change, not a code change.
+GROQ_MODEL   = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 _LANG_NAMES = {
     "en": "English",

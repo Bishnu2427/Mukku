@@ -129,7 +129,17 @@ def _leonardo_generate(prompt: str, image_style: str = "photorealistic",
         f"{LEONARDO_BASE}/generations",
         json=body, headers=headers, timeout=30,
     )
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        # raise_for_status() alone gives "400 Bad Request", which is useless
+        # when the real cause is an exhausted balance or a retired model.
+        # Surface the provider's own message so production logs are diagnosable.
+        detail = resp.text[:300]
+        if "not enough api tokens" in detail.lower():
+            raise RuntimeError(
+                "Leonardo.ai rejected the request: the account is out of credits. "
+                "Top up at app.leonardo.ai, or unset LEONARDO_API to use placeholders."
+            )
+        raise RuntimeError(f"Leonardo.ai {resp.status_code}: {detail}")
     gen_id = resp.json()["sdGenerationJob"]["generationId"]
     logger.info("Leonardo.ai generation queued: %s", gen_id)
 

@@ -77,13 +77,15 @@ RUN pip install --upgrade pip wheel setuptools && \
         grep -viE '^\s*(diffusers|transformers|accelerate)\b' requirements.txt > /tmp/req.slim.txt && \
         pip install -r /tmp/req.slim.txt ; \
     fi && \
-    # gunicorn is not in requirements.txt (deploy/setup.sh installs it
-    # separately on bare metal); the container needs it explicitly.
-    pip install "gunicorn>=22.0" &&     # moviepy is installed without its dependency metadata so it cannot drag
-    # Pillow back down to a CVE-affected 11.x. Its real deps are pinned in
-    # requirements.txt and already installed above.
+    pip install "gunicorn>=22.0" && \
     pip install --no-deps moviepy==2.2.1
 
+# gunicorn is not in requirements.txt (deploy/setup.sh installs it separately
+# on bare metal), so the container installs it explicitly above.
+#
+# moviepy is installed WITHOUT its dependency metadata so it cannot drag
+# Pillow back down to a CVE-affected 11.x. Its real runtime deps are pinned
+# in requirements.txt and are installed by the step above.
 # Fail fast if anything the app imports at startup is missing.
 RUN python -c "import flask, flask_cors, flask_limiter, pymongo, bcrypt, jwt, \
 requests, PIL, moviepy, imageio_ffmpeg, gtts, numpy, gunicorn; print('deps OK')"

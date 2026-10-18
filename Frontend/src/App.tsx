@@ -17,6 +17,13 @@ const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const ResetPassword  = lazy(() => import('./pages/auth/ResetPassword'))
 const NotFound       = lazy(() => import('./pages/NotFound'))
 
+// Policy pages. Lazy like everything else — they are rarely the entry point,
+// but they must be directly linkable for payment-processor review.
+const Terms          = lazy(() => import('./pages/legal/Terms'))
+const Privacy        = lazy(() => import('./pages/legal/Privacy'))
+const Refunds        = lazy(() => import('./pages/legal/Refunds'))
+const Contact        = lazy(() => import('./pages/legal/Contact'))
+
 function ScrollToTop() {
   const { pathname } = useLocation()
   useEffect(() => {
@@ -77,6 +84,11 @@ export default function App() {
           <Route path="/register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/refunds" element={<Refunds />} />
+          <Route path="/contact" element={<Contact />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

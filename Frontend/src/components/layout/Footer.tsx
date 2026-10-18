@@ -21,8 +21,18 @@ const COLUMNS = [
   {
     title: 'Company',
     links: [
-      { label: 'Contact', to: '/#contact' },
+      { label: 'Contact', to: '/contact' },
       { label: 'FAQ', to: '/#faq' },
+    ],
+  },
+  {
+    // Payment processors check that these are reachable from the site, not
+    // only that the pages exist — so they get their own visible column.
+    title: 'Legal',
+    links: [
+      { label: 'Terms & Conditions', to: '/terms' },
+      { label: 'Privacy Policy', to: '/privacy' },
+      { label: 'Cancellation & Refunds', to: '/refunds' },
     ],
   },
 ]
@@ -33,7 +43,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border-hair bg-bg-deep">
       <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.3fr_repeat(4,1fr)]">
           <div>
             <div className="flex items-center gap-2.5">
               <img src="/static/mukku_logo.png" alt="" className="h-7 w-7 rounded-md" />
@@ -79,9 +89,22 @@ export function Footer() {
           <p className="font-mono text-2xs text-fg-subtle">
             © {new Date().getFullYear()} Mukku AI Studio
           </p>
-          <p className="font-mono text-2xs text-fg-subtle">
-            Ready for YouTube · Shorts · Reels · TikTok · LinkedIn · X
-          </p>
+          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+            {[
+              { label: 'Terms', to: '/terms' },
+              { label: 'Privacy', to: '/privacy' },
+              { label: 'Refunds', to: '/refunds' },
+              { label: 'Contact', to: '/contact' },
+            ].map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                className="font-mono text-2xs text-fg-subtle transition-colors hover:text-fg-muted"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
     </footer>

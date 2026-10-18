@@ -281,6 +281,29 @@ def studio():
     return _spa()
 
 
+# Public policy pages. These MUST be registered here, not left to the SPA
+# fallback: that returns 404, which would keep them out of search results and
+# fail a payment processor's merchant review.
+@app.route("/terms")
+def terms_page():
+    return _spa()
+
+
+@app.route("/privacy")
+def privacy_page():
+    return _spa()
+
+
+@app.route("/refunds")
+def refunds_page():
+    return _spa()
+
+
+@app.route("/contact")
+def contact_page():
+    return _spa()
+
+
 @app.route("/robots.txt")
 def robots_txt():
     content = (
@@ -296,7 +319,14 @@ def robots_txt():
         "Disallow: /status/\n"
         "Disallow: /media/\n"
         "\n"
-        "Sitemap: https://mukku.ai/sitemap.xml\n"
+        "# Policy pages stay crawlable: search engines and payment\n"
+        "# processors both check they are publicly reachable.\n"
+        "Allow: /terms\n"
+        "Allow: /privacy\n"
+        "Allow: /refunds\n"
+        "Allow: /contact\n"
+        "\n"
+        f"Sitemap: {os.getenv('APP_URL', 'https://mukku.ai').rstrip('/')}/sitemap.xml\n"
     )
     return app.response_class(content, mimetype="text/plain")
 
@@ -305,18 +335,28 @@ def robots_txt():
 def sitemap_xml():
     from datetime import date
     today = date.today().isoformat()
-    content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
-
-  <url>
-    <loc>https://mukku.ai/</loc>
+    # Public, indexable pages only. Authenticated areas stay out of the
+    # sitemap and are disallowed in robots.txt.
+    pages = [
+        ("/",         "1.0", "weekly"),
+        ("/terms",    "0.4", "yearly"),
+        ("/privacy",  "0.4", "yearly"),
+        ("/refunds",  "0.4", "yearly"),
+        ("/contact",  "0.6", "monthly"),
+    ]
+    base = os.getenv("APP_URL", "https://mukku.ai").rstrip("/")
+    urls = chr(10).join(
+        f"""  <url>
+    <loc>{base}{path}</loc>
     <lastmod>{today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-
-
+    <changefreq>{freq}</changefreq>
+    <priority>{prio}</priority>
+  </url>"""
+        for path, prio, freq in pages
+    )
+    content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{urls}
 </urlset>"""
     return app.response_class(content, mimetype="application/xml")
 
