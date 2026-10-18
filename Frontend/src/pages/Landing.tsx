@@ -2,9 +2,10 @@ import { MarketingNav } from '@/components/layout/MarketingNav'
 import { Footer } from '@/components/layout/Footer'
 import { Hero } from '@/components/landing/Hero'
 import {
-  ClosingCta, Contact, Faq, Features, Languages, Platforms, Pricing,
+  ClosingCta, Contact, Faq, Languages, Platforms, Pricing,
 } from '@/components/landing/Sections'
 import { HowItWorks } from '@/components/landing/HowItWorks'
+import { FeatureBento } from '@/components/landing/FeatureBento'
 
 export default function Landing() {
   return (
@@ -13,7 +14,7 @@ export default function Landing() {
       <main>
         <Hero />
         <HowItWorks />
-        <Features />
+        <FeatureBento />
         <Platforms />
         <Languages />
         <Pricing />

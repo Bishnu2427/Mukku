@@ -140,7 +140,7 @@ export function SectionHeading({
         </motion.span>
       )}
       <motion.h2
-        className="max-w-2xl font-display text-3xl font-semibold text-fg sm:text-4xl"
+        className="max-w-3xl text-balance font-display text-[clamp(2.1rem,4.4vw,3.4rem)] font-semibold leading-[1.02] tracking-[-0.038em] text-fg"
         initial={{ opacity: 0, y: 14 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-60px' }}

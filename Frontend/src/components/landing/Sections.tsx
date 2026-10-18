@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, ChevronDown, Film, Music, Sparkles, Upload, Wand2, Languages as LangIcon } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge, SectionHeading } from '@/components/ui/Primitives'
 import { Input, Textarea } from '@/components/ui/Field'
 import { LANGUAGES, PLATFORMS, PRICING } from '@/lib/constants'
-import { useCycle, useTilt } from '@/hooks'
+import { useCycle } from '@/hooks'
 import { enquiry } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -18,64 +18,19 @@ const reveal = {
 
 function Section({ id, children, alt = false }: { id?: string; children: React.ReactNode; alt?: boolean }) {
   return (
-    <section id={id} className={cn('relative py-24 sm:py-32', alt && 'bg-bg-deep')}>
+    <section
+      id={id}
+      className={cn(
+        'relative scroll-mt-24',
+        alt ? 'bg-bg-deep py-28 sm:py-36' : 'py-20 sm:py-24',
+      )}
+    >
       <div className="mx-auto max-w-7xl px-5 lg:px-8">{children}</div>
     </section>
   )
 }
 
 /* ── How it works — the 8 stages ──────────────────────────────────────────── */
-
-/* ── Features ─────────────────────────────────────────────────────────────── */
-
-const FEATURES = [
-  { icon: LangIcon, title: 'Twelve languages',  body: 'English plus eleven Indian languages, with narration recorded natively in each.' },
-  { icon: Upload,   title: 'Bring your own media', body: 'Attach your own photos and clips. They replace generated scenes; the rest is filled in for you.' },
-  { icon: Film,     title: 'Real motion',       body: 'Scenes animate with genuine camera movement, not a static image with a zoom slapped on.' },
-  { icon: Sparkles, title: 'Platform presets',  body: 'One click sets aspect ratio, length, tone and style for the platform you are posting to.' },
-  { icon: Music,    title: 'Original score',    body: 'Background music composed for your topic and mood, mixed under the narration.' },
-  { icon: Wand2,    title: 'Edit and remake',   body: 'Adjust the prompt or any setting and regenerate without starting over.' },
-]
-
-function FeatureCard({ f, i }: { f: (typeof FEATURES)[number]; i: number }) {
-  const tilt = useTilt(4)
-  return (
-    <motion.div
-      variants={reveal}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: '-50px' }}
-      transition={{ delay: i * 0.05 }}
-    >
-      <div ref={tilt} className="h-full transition-transform duration-300 ease-out">
-        <Card edge className="h-full p-6">
-          <span className="mb-4 grid h-11 w-11 place-items-center rounded-xl border border-border-hair bg-surface-inset text-brand">
-            <f.icon size={18} />
-          </span>
-          <h3 className="font-display text-lg font-semibold text-fg">{f.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-fg-muted">{f.body}</p>
-        </Card>
-      </div>
-    </motion.div>
-  )
-}
-
-export function Features() {
-  return (
-    <Section id="features" alt>
-      <SectionHeading
-        eyebrow="Capabilities"
-        title="Everything a finished video needs"
-        description="Not a storyboard tool or a stock-clip stitcher. Mukku produces the whole thing."
-      />
-      <div className="mt-16 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((f, i) => (
-          <FeatureCard key={f.title} f={f} i={i} />
-        ))}
-      </div>
-    </Section>
-  )
-}
 
 /* ── Platforms ────────────────────────────────────────────────────────────── */
 

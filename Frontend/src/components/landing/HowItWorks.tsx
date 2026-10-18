@@ -218,12 +218,12 @@ export function HowItWorks() {
   const railScale = useTransform(scrollYProgress, [0, 1], [0, 1])
 
   return (
-    <section id="how" ref={host} className="relative py-28 sm:py-36">
+    <section id="how" ref={host} className="scroll-mt-24 relative py-28 sm:py-36">
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
 
         <div className="max-w-2xl">
           <span className="label-mono text-brand">The pipeline</span>
-          <h2 className="mt-3 font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-semibold leading-[1.1] tracking-[-0.03em] text-fg">
+          <h2 className="mt-3 font-display text-[clamp(2.3rem,5vw,3.9rem)] font-semibold leading-[0.98] tracking-[-0.042em] text-fg">
             Eight stages. You write one sentence.
           </h2>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-fg-muted">

@@ -26,13 +26,20 @@ export function useCountUp(target: number, duration = 1.4) {
 }
 
 /** Cycles an index on an interval — used by the language chip strip. */
-export function useCycle(length: number, intervalMs = 1200) {
+/**
+ * Advances an index on an interval.
+ *
+ * `enabled` lets callers stop the timer when the element is off screen — an
+ * idle carousel that keeps ticking behind the fold costs real battery for
+ * nothing, and the page has several of them.
+ */
+export function useCycle(length: number, intervalMs = 1200, enabled = true) {
   const [i, setI] = useState(0)
   useEffect(() => {
-    if (length <= 1 || prefersReducedMotion()) return
+    if (!enabled || length <= 1 || prefersReducedMotion()) return
     const t = setInterval(() => setI((p) => (p + 1) % length), intervalMs)
     return () => clearInterval(t)
-  }, [length, intervalMs])
+  }, [length, intervalMs, enabled])
   return i
 }
 

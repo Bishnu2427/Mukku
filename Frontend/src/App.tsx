@@ -1,3 +1,4 @@
+import { SmoothScroll } from '@/providers/SmoothScroll'
 import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './providers/AuthProvider'
@@ -47,7 +48,7 @@ function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <>
+    <SmoothScroll>
       <ScrollToTop />
       <ThemeToggle />
       <Suspense fallback={<PageLoader />}>
@@ -80,6 +81,6 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
-    </>
+    </SmoothScroll>
   )
 }
